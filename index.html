@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Chess ♜ Your Variant</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: #2d5a27;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-container {
+            background: #3b6e35;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            width: 560px;
+            height: 560px;
+            border: 4px solid #4a3c31;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+        }
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 42px;
+            cursor: pointer;
+            transition: 0.1s;
+            position: relative;
+        }
+        .square.light { background: #eed9b2; }
+        .square.dark { background: #b58863; }
+        .square.selected {
+            outline: 4px solid #ffd966;
+            outline-offset: -2px;
+            filter: brightness(1.1);
+        }
+        .square.valid-move {
+            position: relative;
+        }
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(0,255,0,0.3);
+            border-radius: 50%;
+        }
+        .backrank-pawn {
+            position: relative;
+        }
+        .backrank-pawn::after {
+            content: '¹';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 16px;
+            color: #c41e3a;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 white;
+        }
+        .info-panel {
+            margin-top: 20px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .turn-indicator {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 10px 20px;
+            background: #4a3c31;
+            border-radius: 30px;
+        }
+        button {
+            background: #ffd966;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #ffe599;
+            transform: scale(1.05);
+        }
+        .rule-note {
+            background: #4a3c31;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        .rule-note span {
+            color: #ffd966;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="board" id="board"></div>
+        
+        <div class="info-panel">
+            <div class="turn-indicator" id="turnDisplay">White's turn</div>
+            <button onclick="newGame()">🎲 New Random Game</button>
+        </div>
+        
+        <div class="rule-note">
+            <span>★ RANDOM CHESS RULES ★</span><br>
+            • All 16 pieces randomly placed on first two ranks<br>
+            • <span>¹</span> = pawn on back rank → moves ONE square only<br>
+            • Other pawns move normally (1 or 2 squares first move)<br>
+            • No castling, everything else same!
+        </div>
+    </div>
+
+    <script>
+        class RandomChessGame {
+            constructor() {
+                this.board = Array(8).fill().map(() => Array(8).fill(null));
+                this.currentPlayer = 'white';
+                this.selectedSquare = null;
+                this.validMoves = [];
+                this.setupRandomPosition();
+            }
+
+            setupRandomPosition() {
+                // Unicode chess pieces
+                const pieces = {
+                    white: { 
+                        rook: '♜', knight: '♞', bishop: '♝', queen: '♛', king: '♚', pawn: '♟'
+                    },
+                    black: {
+                        rook: '♖', knight: '♘', bishop: '♗', queen: '♕', king: '♔', pawn: '♙'
+                    }
+                };
+
+                // Create pool of pieces (8 major + 8 pawns)
+                const whitePool = [
+                    ...Array(1).fill('rook'), ...Array(1).fill('knight'), 
+                    ...Array(1).fill('bishop'), ...Array(1).fill('queen'),
+                    ...Array(1).fill('king'), ...Array(1).fill('bishop'),
+                    ...Array(1).fill('knight'), ...Array(1).fill('rook'),
+                    ...Array(8).fill('pawn')
+                ];
+                
+                const blackPool = [
+                    ...Array(1).fill('rook'), ...Array(1).fill('knight'),
+                    ...Array(1).fill('bishop'), ...Array(1).fill('queen'),
+                    ...Array(1).fill('king'), ...Array(1).fill('bishop'),
+                    ...Array(1).fill('knight'), ...Array(1).fill('rook'),
+                    ...Array(8).fill('pawn')
+                ];
+
+                // Shuffle both pools
+                this.shuffleArray(whitePool);
+                this.shuffleArray(blackPool);
+
+                // Place white pieces (rows 0 and 1)
+                for (let col = 0; col < 8; col++) {
+                    // Row 0 (back rank)
+                    this.board[0][col] = {
+                        type: pieces.white[whitePool[col]],
+                        pieceType: whitePool[col],
+                        color: 'white',
+                        startingRow: 0,
+                        hasMoved: false
+                    };
+                    
+                    // Row 1
+                    this.board[1][col] = {
+                        type: pieces.white[whitePool[col + 8]],
+                        pieceType: whitePool[col + 8],
+                        color: 'white',
+                        startingRow: 1,
+                        hasMoved: false
+                    };
+                }
+
+                // Place black pieces (rows 6 and 7)
+                for (let col = 0; col < 8; col++) {
+                    // Row 6
+                    this.board[6][col] = {
+                        type: pieces.black[blackPool[col]],
+                        pieceType: blackPool[col],
+                        color: 'black',
+                        startingRow: 6,
+                        hasMoved: false
+                    };
+                    
+                    // Row 7 (back rank)
+                    this.board[7][col] = {
+                        type: pieces.black[blackPool[col + 8]],
+                        pieceType: blackPool[col + 8],
+                        color: 'black',
+                        startingRow: 7,
+                        hasMoved: false
+                    };
+                }
+            }
+
+            shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            getValidMoves(row, col) {
+                const piece = this.board[row][col];
+                if (!piece || piece.color !== this.currentPlayer) return [];
+
+                const moves = [];
+                
+                if (piece.pieceType === 'pawn') {
+                    this.getPawnMoves(row, col, piece, moves);
+                } else if (piece.pieceType === 'rook') {
+                    this.getRookMoves(row, col, piece, moves);
+                } else if (piece.pieceType === 'knight') {
+                    this.getKnightMoves(row, col, piece, moves);
+                } else if (piece.pieceType === 'bishop') {
+                    this.getBishopMoves(row, col, piece, moves);
+                } else if (piece.pieceType === 'queen') {
+                    this.getRookMoves(row, col, piece, moves);
+                    this.getBishopMoves(row, col, piece, moves);
+                } else if (piece.pieceType === 'king') {
+                    this.getKingMoves(row, col, piece, moves);
+                }
+
+                return moves;
+            }
+
+            getPawnMoves(row, col, piece, moves) {
+                const direction = piece.color === 'white' ? 1 : -1;
+                const isBackRankPawn = (piece.color === 'white' && piece.startingRow === 0) ||
+                                      (piece.color === 'black' && piece.startingRow === 7);
+
+                // Forward one square
+                if (row + direction >= 0 && row + direction < 8) {
+                    if (!this.board[row + direction][col]) {
+                        moves.push({ row: row + direction, col });
+                    }
+                }
+
+                // Forward two squares (only if not back rank pawn and hasn't moved)
+                if (!isBackRankPawn && !piece.hasMoved) {
+                    if (row + 2*direction >= 0 && row + 2*direction < 8) {
+                        if (!this.board[row + direction][col] && !this.board[row + 2*direction][col]) {
+                            moves.push({ row: row + 2*direction, col });
+                        }
+                    }
+                }
+
+                // Captures
+                for (let dc of [-1, 1]) {
+                    if (col + dc >= 0 && col + dc < 8) {
+                        if (row + direction >= 0 && row + direction < 8) {
+                            const target = this.board[row + direction][col + dc];
+                            if (target && target.color !== piece.color) {
+                                moves.push({ row: row + direction, col: col + dc });
+                            }
+                        }
+                    }
+                }
+            }
+
+            getRookMoves(row, col, piece, moves) {
+                const directions = [[1,0], [-1,0], [0,1], [0,-1]];
+                this.getSlidingMoves(row, col, piece, directions, moves);
+            }
+
+            getBishopMoves(row, col, piece, moves) {
+                const directions = [[1,1], [1,-1], [-1,1], [-1,-1]];
+                this.getSlidingMoves(row, col, piece, directions, moves);
+            }
+
+            getSlidingMoves(row, col, piece, directions, moves) {
+                for (let [dr, dc] of directions) {
+                    let r = row + dr;
+                    let c = col + dc;
+                    while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                        if (!this.board[r][c]) {
+                            moves.push({ row: r, col: c });
+                        } else {
+                            if (this.board[r][c].color !== piece.color) {
+                                moves.push({ row: r, col: c });
+                            }
+                            break;
+                        }
+                        r += dr;
+                        c += dc;
+                    }
+                }
+            }
+
+            getKnightMoves(row, col, piece, moves) {
+                const jumps = [[2,1], [2,-1], [-2,1], [-2,-1], [1,2], [1,-2], [-1,2], [-1,-2]];
+                for (let [dr, dc] of jumps) {
+                    let r = row + dr;
+                    let c = col + dc;
+                    if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                        if (!this.board[r][c] || this.board[r][c].color !== piece.color) {
+                            moves.push({ row: r, col: c });
+                        }
+                    }
+                }
+            }
+
+            getKingMoves(row, col, piece, moves) {
+                for (let dr of [-1,0,1]) {
+                    for (let dc of [-1,0,1]) {
+                        if (dr === 0 && dc === 0) continue;
+                        let r = row + dr;
+                        let c = col + dc;
+                        if (r >= 0 && r < 8 && c >= 0 && c < 8) {
+                            if (!this.board[r][c] || this.board[r][c].color !== piece.color) {
+                                moves.push({ row: r, col: c });
+                            }
+                        }
+                    }
+                }
+            }
+
+            movePiece(from, to) {
+                const piece = this.board[from.row][from.col];
+                if (!piece) return false;
+
+                // Check if move is valid
+                const validMoves = this.getValidMoves(from.row, from.col);
+                const isValid = validMoves.some(m => m.row === to.row && m.col === to.col);
+                
+                if (!isValid) return false;
+
+                // Make the move
+                this.board[to.row][to.col] = {
+                    ...piece,
+                    hasMoved: true
+                };
+                this.board[from.row][from.col] = null;
+
+                // Switch player
+                this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
+                return true;
+            }
+
+            isBackRankPawn(piece) {
+                if (!piece || piece.pieceType !== 'pawn') return false;
+                return (piece.color === 'white' && piece.startingRow === 0) ||
+                       (piece.color === 'black' && piece.startingRow === 7);
+            }
+        }
+
+        // UI Controller
+        const game = new RandomChessGame();
+        
+        function renderBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    
+                    const piece = game.board[row][col];
+                    if (piece) {
+                        const pieceSpan = document.createElement('span');
+                        pieceSpan.textContent = piece.type;
+                        
+                        if (game.isBackRankPawn(piece)) {
+                            pieceSpan.classList.add('backrank-pawn');
+                        }
+                        
+                        square.appendChild(pieceSpan);
+                    }
+                    
+                    // Highlight selected square
+                    if (game.selectedSquare && 
+                        game.selectedSquare.row === row && 
+                        game.selectedSquare.col === col) {
+                        square.classList.add('selected');
+                    }
+                    
+                    // Highlight valid moves
+                    if (game.validMoves.some(m => m.row === row && m.col === col)) {
+                        square.classList.add('valid-move');
+                    }
+                    
+                    square.addEventListener('click', () => handleSquareClick(row, col));
+                    boardElement.appendChild(square);
+                }
+            }
+            
+            document.getElementById('turnDisplay').textContent = 
+                game.currentPlayer === 'white' ? "⚪ White's turn" : "⚫ Black's turn";
+        }
+
+        function handleSquareClick(row, col) {
+            const piece = game.board[row][col];
+            
+            if (game.selectedSquare) {
+                // Try to move
+                const moved = game.movePiece(game.selectedSquare, { row, col });
+                game.selectedSquare = null;
+                game.validMoves = [];
+                renderBoard();
+            } else if (piece && piece.color === game.currentPlayer) {
+                // Select piece
+                game.selectedSquare = { row, col };
+                game.validMoves = game.getValidMoves(row, col);
+                renderBoard();
+            }
+        }
+
+        function newGame() {
+            Object.assign(game, new RandomChessGame());
+            game.selectedSquare = null;
+            game.validMoves = [];
+            renderBoard();
+        }
+
+        // Initialize
+        renderBoard();
+    </script>
+</body>
+</html>
