@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess 960-Style Random Distribution Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #ffd700;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+            font-style: italic;
+        }
+
+        .rule-box {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .rule-title {
+            color: #1e3c72;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 5px;
+        }
+
+        .rules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .rule-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #ffd700;
+        }
+
+        .rule-item h3 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .rule-item p {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .board-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .side-board {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .side-title {
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .white-title {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #999;
+        }
+
+        .black-title {
+            background: #2c3e50;
+            color: white;
+            border: 2px solid #000;
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(2, 60px);
+            gap: 2px;
+            background: #654321;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .square:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .square.light {
+            background: #f0d9b5;
+        }
+
+        .square.dark {
+            background: #b58863;
+        }
+
+        .white-piece {
+            color: white;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+        }
+
+        .black-piece {
+            color: #2c3e50;
+            text-shadow: 2px 2px 2px rgba(255,255,255,0.3);
+        }
+
+        .piece-info {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .piece-count {
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #ffd700;
+            color: #1e3c72;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: #ffed4a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        button.secondary {
+            background: white;
+            color: #1e3c72;
+        }
+
+        button.secondary:hover {
+            background: #f0f0f0;
+        }
+
+        .verification {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .verification h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+
+        .verification-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .verification-item {
+            padding: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .verification-item.pass {
+            border-left: 4px solid #28a745;
+        }
+
+        .verification-item.fail {
+            border-left: 4px solid #dc3545;
+        }
+
+        .coordinate {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .chessboard {
+                grid-template-columns: repeat(8, 40px);
+                grid-template-rows: repeat(2, 40px);
+            }
+            
+            .square {
+                width: 40px;
+                height: 40px;
+                font-size: 25px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>♜ Chess 960-Style Random Distribution ♞</h1>
+        <div class="subtitle">Random placement for both sides with opposite-square requirement</div>
+
+        <div class="rule-box">
+            <div class="rule-title">📋 Distribution Rules</div>
+            <div class="rules">
+                <div class="rule-item">
+                    <h3>🎯 For Each Side (16 pieces total)</h3>
+                    <p>• 8 Pawns<br>• 2 Rooks<br>• 2 Knights<br>• 2 Bishops<br>• 1 King<br>• 1 Queen</p>
+                </div>
+                <div class="rule-item">
+                    <h3>⚫⚪ Square Color Rules</h3>
+                    <p>Each pair must be on opposite colored squares:<br>• Bishops (one on light, one on dark)<br>• Rooks (one on light, one on dark)<br>• Knights (one on light, one on dark)<br>• King & Queen (opposite colors)</p>
+                </div>
+                <div class="rule-item">
+                    <h3>🔄 Distribution Area</h3>
+                    <p>• White pieces: Randomly placed on ranks 1-2<br>• Black pieces: Randomly placed on ranks 7-8<br>• Pawns fill remaining squares in those ranks</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="board-container" id="boardContainer">
+            <!-- Boards will be generated here by JavaScript -->
+        </div>
+
+        <div class="controls">
+            <button onclick="generateNewPosition()">🎲 Generate New Random Position</button>
+            <button class="secondary" onclick="copyPosition()">📋 Copy Position FEN</button>
+        </div>
+
+        <div class="verification" id="verification">
+            <!-- Verification will be shown here -->
+        </div>
+    </div>
+
+    <script>
+        class Chess960Generator {
+            constructor() {
+                // PIECES are the same color for each side!
+                this.pieceSymbols = {
+                    // White pieces (all white color)
+                    'white_rook': '♜',    // White rook
+                    'white_knight': '♞',   // White knight
+                    'white_bishop': '♝',   // White bishop
+                    'white_queen': '♛',    // White queen
+                    'white_king': '♚',      // White king
+                    'white_pawn': '♟',      // White pawn
+                    
+                    // Black pieces (all black/dark color)
+                    'black_rook': '♖',     // Black rook
+                    'black_knight': '♘',    // Black knight
+                    'black_bishop': '♗',    // Black bishop
+                    'black_queen': '♕',     // Black queen
+                    'black_king': '♔',       // Black king
+                    'black_pawn': '♙'        // Black pawn
+                };
+            }
+
+            // Get square color (light/dark) based on rank and column
+            getSquareColor(rank, col) {
+                // Chessboard: a1 is dark (col 1, rank 1)
+                // For rank 1: odd col (1,3,5,7) = dark, even col (2,4,6,8) = light
+                if (rank === 1) return col % 2 === 1 ? 'dark' : 'light';
+                // Rank 2: opposite of rank 1
+                if (rank === 2) return col % 2 === 1 ? 'light' : 'dark';
+                // Rank 7: same pattern as rank 2 (black's pawn rank)
+                if (rank === 7) return col % 2 === 1 ? 'light' : 'dark';
+                // Rank 8: same pattern as rank 1 (black's back rank)
+                if (rank === 8) return col % 2 === 1 ? 'dark' : 'light';
+                return col % 2 === 1 ? 'dark' : 'light';
+            }
+
+            // Generate position for a specific side
+            generateSide(side) {
+                const isWhite = side === 'white';
+                const ranks = isWhite ? [1, 2] : [7, 8];
+                const squares = [];
+
+                // Create all squares for this side
+                for (let rank of ranks) {
+                    for (let col = 1; col <= 8; col++) {
+                        squares.push({
+                            rank: rank,
+                            col: col,
+                            color: this.getSquareColor(rank, col),
+                            piece: null,
+                            side: side
+                        });
+                    }
+                }
+
+                // Place major pieces with opposite color requirement
+                this.placeMajorPieces(squares, isWhite);
+                
+                // Fill remaining squares with pawns
+                squares.filter(s => s.piece === null).forEach(s => {
+                    s.piece = isWhite ? 'white_pawn' : 'black_pawn';
+                });
+
+                return squares;
+            }
+
+            placeMajorPieces(squares, isWhite) {
+                const prefix = isWhite ? 'white' : 'black';
+                
+                // Helper to get available squares of a specific color
+                const getAvailableByColor = (color) => {
+                    return squares.filter(s => s.piece === null && s.color === color);
+                };
+
+                // Helper to place a piece on a specific color
+                const placeOnColor = (pieceName, color) => {
+                    const available = getAvailableByColor(color);
+                    if (available.length === 0) return false;
+                    
+                    const randomIndex = Math.floor(Math.random() * available.length);
+                    available[randomIndex].piece = pieceName;
+                    return true;
+                };
+
+                // Place bishops (must be on opposite colors)
+                const bishopColor1 = Math.random() < 0.5 ? 'light' : 'dark';
+                const bishopColor2 = bishopColor1 === 'light' ? 'dark' : 'light';
+                
+                placeOnColor(`${prefix}_bishop`, bishopColor1);
+                placeOnColor(`${prefix}_bishop`, bishopColor2);
+
+                // Place rooks (opposite colors)
+                const rookColor1 = Math.random() < 0.5 ? 'light' : 'dark';
+                const rookColor2 = rookColor1 === 'light' ? 'dark' : 'light';
+                
+                placeOnColor(`${prefix}_rook`, rookColor1);
+                placeOnColor(`${prefix}_rook`, rookColor2);
+
+                // Place knights (opposite colors)
+                const knightColor1 = Math.random() < 0.5 ? 'light' : 'dark';
+                const knightColor2 = knightColor1 === 'light' ? 'dark' : 'light';
+                
+                placeOnColor(`${prefix}_knight`, knightColor1);
+                placeOnColor(`${prefix}_knight`, knightColor2);
+
+                // Place king and queen (opposite colors)
+                const kingColor = Math.random() < 0.5 ? 'light' : 'dark';
+                const queenColor = kingColor === 'light' ? 'dark' : 'light';
+                
+                placeOnColor(`${prefix}_king`, kingColor);
+                placeOnColor(`${prefix}_queen`, queenColor);
+            }
+
+            // Generate complete position for both sides
+            generateFullPosition() {
+                const whiteSquares = this.generateSide('white');
+                const blackSquares = this.generateSide('black');
+                
+                return {
+                    white: whiteSquares,
+                    black: blackSquares
+                };
+            }
+
+            // Verify the position meets all requirements
+            verifyPosition(position) {
+                const verification = {
+                    white: this.verifySide(position.white, 'white'),
+                    black: this.verifySide(position.black, 'black')
+                };
+                return verification;
+            }
+
+            verifySide(squares, side) {
+                const prefix = side === 'white' ? 'white' : 'black';
+                
+                // Count pieces
+                const pieces = {
+                    bishops: squares.filter(s => s.piece === `${prefix}_bishop`).length,
+                    rooks: squares.filter(s => s.piece === `${prefix}_rook`).length,
+                    knights: squares.filter(s => s.piece === `${prefix}_knight`).length,
+                    queen: squares.filter(s => s.piece === `${prefix}_queen`).length,
+                    king: squares.filter(s => s.piece === `${prefix}_king`).length,
+                    pawns: squares.filter(s => s.piece === `${prefix}_pawn`).length
+                };
+
+                // Check opposite colors for pairs
+                const getPieceColors = (pieceName) => {
+                    return squares
+                        .filter(s => s.piece === pieceName)
+                        .map(s => s.color);
+                };
+
+                const bishopColors = getPieceColors(`${prefix}_bishop`);
+                const rookColors = getPieceColors(`${prefix}_rook`);
+                const knightColors = getPieceColors(`${prefix}_knight`);
+                const kingColor = squares.find(s => s.piece === `${prefix}_king`)?.color;
+                const queenColor = squares.find(s => s.piece === `${prefix}_queen`)?.color;
+
+                return {
+                    counts: pieces,
+                    bishopsOpposite: bishopColors.length === 2 && bishopColors[0] !== bishopColors[1],
+                    rooksOpposite: rookColors.length === 2 && rookColors[0] !== rookColors[1],
+                    knightsOpposite: knightColors.length === 2 && knightColors[0] !== knightColors[1],
+                    kingQueenOpposite: kingColor && queenColor && kingColor !== queenColor,
+                    totalPieces: Object.values(pieces).reduce((a, b) => a + b, 0)
+                };
+            }
+        }
+
+        // Initialize generator
+        const generator = new Chess960Generator();
+        let currentPosition = generator.generateFullPosition();
+
+        // Render the boards
+        function renderBoards(position) {
+            const container = document.getElementById('boardContainer');
+            
+            container.innerHTML = `
+                <div class="side-board">
+                    <div class="side-title white-title">⚪ WHITE PIECES (Ranks 1-2)</div>
+                    <div class="chessboard">
+                        ${renderSideBoard(position.white, 'white')}
+                    </div>
+                    ${renderPieceCounts(position.white, 'white')}
+                </div>
+                <div class="side-board">
+                    <div class="side-title black-title">⚫ BLACK PIECES (Ranks 7-8)</div>
+                    <div class="chessboard">
+                        ${renderSideBoard(position.black, 'black')}
+                    </div>
+                    ${renderPieceCounts(position.black, 'black')}
+                </div>
+            `;
+
+            renderVerification(position);
+        }
+
+        function renderSideBoard(squares, side) {
+            const pieceClass = side === 'white' ? 'white-piece' : 'black-piece';
+            let html = '';
+            
+            // Sort by rank (descending for display) and column
+            const sortedSquares = [...squares].sort((a, b) => {
+                if (a.rank !== b.rank) return b.rank - a.rank;
+                return a.col - b.col;
+            });
+
+            sortedSquares.forEach(square => {
+                const piece = square.piece ? generator.pieceSymbols[square.piece] : '';
+                html += `
+                    <div class="square ${square.color}" title="Rank ${square.rank}, Col ${square.col} (${square.color})">
+                        <span class="${pieceClass}">${piece}</span>
+                    </div>
+                `;
+            });
+
+            return html;
+        }
+
+        function renderPieceCounts(squares, side) {
+            const prefix = side === 'white' ? 'white' : 'black';
+            
+            const counts = {
+                pawns: squares.filter(s => s.piece === `${prefix}_pawn`).length,
+                rooks: squares.filter(s => s.piece === `${prefix}_rook`).length,
+                knights: squares.filter(s => s.piece === `${prefix}_knight`).length,
+                bishops: squares.filter(s => s.piece === `${prefix}_bishop`).length,
+                queen: squares.filter(s => s.piece === `${prefix}_queen`).length,
+                king: squares.filter(s => s.piece === `${prefix}_king`).length
+            };
+
+            return `
+                <div class="piece-info">
+                    <span class="piece-count">♟ ${counts.pawns}</span>
+                    <span class="piece-count">♜ ${counts.rooks}</span>
+                    <span class="piece-count">♞ ${counts.knights}</span>
+                    <span class="piece-count">♝ ${counts.bishops}</span>
+                    <span class="piece-count">♛ ${counts.queen}</span>
+                    <span class="piece-count">♚ ${counts.king}</span>
+                </div>
+            `;
+        }
+
+        function renderVerification(position) {
+            const verification = generator.verifyPosition(position);
+            const verificationDiv = document.getElementById('verification');
+
+            verificationDiv.innerHTML = `
+                <h3>✅ Position Verification</h3>
+                <div class="verification-grid">
+                    <div class="verification-item ${verification.white.bishopsOpposite ? 'pass' : 'fail'}">
+                        <span>⚪ White Bishops:</span>
+                        <span>${verification.white.bishopsOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.black.bishopsOpposite ? 'pass' : 'fail'}">
+                        <span>⚫ Black Bishops:</span>
+                        <span>${verification.black.bishopsOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.white.rooksOpposite ? 'pass' : 'fail'}">
+                        <span>⚪ White Rooks:</span>
+                        <span>${verification.white.rooksOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.black.rooksOpposite ? 'pass' : 'fail'}">
+                        <span>⚫ Black Rooks:</span>
+                        <span>${verification.black.rooksOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.white.knightsOpposite ? 'pass' : 'fail'}">
+                        <span>⚪ White Knights:</span>
+                        <span>${verification.white.knightsOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.black.knightsOpposite ? 'pass' : 'fail'}">
+                        <span>⚫ Black Knights:</span>
+                        <span>${verification.black.knightsOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.white.kingQueenOpposite ? 'pass' : 'fail'}">
+                        <span>⚪ White King/Queen:</span>
+                        <span>${verification.white.kingQueenOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item ${verification.black.kingQueenOpposite ? 'pass' : 'fail'}">
+                        <span>⚫ Black King/Queen:</span>
+                        <span>${verification.black.kingQueenOpposite ? '✓ Opposite colors' : '✗ Same color!'}</span>
+                    </div>
+                    <div class="verification-item pass">
+                        <span>⚪ White total pieces:</span>
+                        <span>${verification.white.totalPieces}/16</span>
+                    </div>
+                    <div class="verification-item pass">
+                        <span>⚫ Black total pieces:</span>
+                        <span>${verification.black.totalPieces}/16</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateNewPosition() {
+            currentPosition = generator.generateFullPosition();
+            renderBoards(currentPosition);
+        }
+
+        function copyPosition() {
+            // Create a simple FEN-like string
+            const fen = generateFEN(currentPosition);
+            navigator.clipboard.writeText(fen).then(() => {
+                alert('Position copied to clipboard!');
+            });
+        }
+
+        function generateFEN(position) {
+            // Simple FEN-like representation for the position
+            let whitePieces = position.white.map(s => 
+                `${s.rank}${String.fromCharCode(96 + s.col)}:${s.piece}`
+            ).join(',');
+            
+            let blackPieces = position.black.map(s => 
+                `${s.rank}${String.fromCharCode(96 + s.col)}:${s.piece}`
+            ).join(',');
+            
+            return `White: ${whitePieces} | Black: ${blackPieces}`;
+        }
+
+        // Initial render
+        renderBoards(currentPosition);
+    </script>
+</body>
+</html>
