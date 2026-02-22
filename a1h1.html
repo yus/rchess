@@ -1141,9 +1141,9 @@
         if (currentPlayer === humanColor) {
             let checkText = isInCheck(humanColor) ? ' · <span class="check-warning">CHECK</span>' : '';
             let firstPassText = (firstPassAllowed(humanColor) && moveHistory.length === 0) ? ' · ⚡ FIRST PASS' : '';
-            turnSpan.innerHTML = `<span>${humanColor === 'white' ? '⚪' : '⚫'}</span> (${humanColor === 'white' ? 'White' : 'Black'}) turn ${checkText}${firstPassText} ${validIndicator}`;
+            turnSpan.innerHTML = `<span>${humanColor === 'white' ? '⚪' : '⚫'}</span> ${humanColor === 'white' ? 'White' : 'Black'} turn ${checkText}${firstPassText} ${validIndicator}`;
         } else {
-            turnSpan.innerHTML = `<span>${humanColor === 'white' ? '⚫' : '⚪'}</span> Computer thinking... ${validIndicator}`;
+            turnSpan.innerHTML = `<span>${humanColor === 'white' ? '⚫' : '⚪'}</span> AI think... ${validIndicator}`;
             setTimeout(() => {
                 computerMove();
                 renderBoard();
