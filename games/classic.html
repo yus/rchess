@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rchess · Classic with Learning</title>
+    <link rel="stylesheet" href="../lib/rchess-styles.css">
+    <style>
+        body {
+            background: #1e4d1e;
+            font-family: 'Segoe UI', system-ui;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            background: #2d5a2d;
+            padding: 25px;
+            border-radius: 28px;
+            border: 2px solid #ebc28b;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+        .board-container {
+            display: flex;
+            justify-content: center;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 70px);
+            grid-template-rows: repeat(8, 70px);
+            border: 5px solid #4a3c31;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            cursor: pointer;
+        }
+        .square.light { background: #eed9b2; }
+        .square.dark { background: #b58863; }
+        .square.selected {
+            outline: 4px solid #ffb703;
+            outline-offset: -3px;
+            filter: brightness(1.1);
+        }
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: rgba(0, 200, 0, 0.5);
+            border-radius: 50%;
+        }
+        .sidebar {
+            background: #3b5e3b;
+            border-radius: 18px;
+            padding: 20px;
+            color: white;
+            border: 2px solid #6f8c5d;
+        }
+        .learning-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2d4d2d;
+            border-radius: 15px;
+        }
+        .suggestion {
+            background: #4a3c31;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #f5c542;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat {
+            text-align: center;
+            background: #3b5e3b;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .mode-btn.active {
+            background: #f5c542;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-layout">
+            <div class="board-container">
+                <div class="board" id="chessboard"></div>
+            </div>
+            
+            <div class="sidebar">
+                <h2>♟️ Rchess Classic</h2>
+                
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setMode('human')">👤 Human</button>
+                    <button class="mode-btn" onclick="setMode('ai')">🤖 AI</button>
+                    <button class="mode-btn" onclick="setMode('learn')">📚 Learn</button>
+                </div>
+                
+                <div class="turn-indicator" id="turnDisplay">⚪ Your turn</div>
+                
+                <div class="learning-panel" id="learningPanel">
+                    <h3>📊 Learning Stats</h3>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="value" id="posGames">0</div>
+                            <div>Games at position</div>
+                        </div>
+                        <div class="stat">
+                            <div class="value" id="posWinRate">0%</div>
+                            <div>Win rate</div>
+                        </div>
+                    </div>
+                    
+                    <div id="suggestionBox">
+                        <h4>💡 Suggested Moves</h4>
+                        <div id="moveSuggestions"></div>
+                    </div>
+                    
+                    <div id="patternBox">
+                        <h4>🔍 Detected Patterns</h4>
+                        <div id="patternList"></div>
+                    </div>
+                </div>
+                
+                <div class="history-box" style="margin-top:20px">
+                    <h3>📜 Move History</h3>
+                    <div id="movesList" style="max-height:200px; overflow-y:auto"></div>
+                </div>
+                
+                <button onclick="resetGame()" style="margin-top:20px; width:100%">🎲 New Game</button>
+                <button onclick="exportGame()" style="margin-top:10px; width:100%" class="secondary">💾 Save Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../lib/rchess-distribution.js"></script>
+    <script>
+    class RchessGame {
+        constructor() {
+            this.board = Array(8).fill().map(() => Array(8).fill(null));
+            this.currentPlayer = 'white';
+            this.humanColor = 'white';
+            this.mode = 'human';
+            this.selectedSquare = null;
+            this.validMoves = [];
+            this.moveHistory = [];
+            this.learner = new RchessLearner();
+            this.setupBoard();
+        }
+
+        setupBoard() {
+            // Standard starting position
+            const setup = [
+                ['rook','knight','bishop','queen','king','bishop','knight','rook'],
+                ...Array(8).fill('pawn')
+            ];
+            
+            for(let c=0; c<8; c++) {
+                this.board[0][c] = this.createPiece('white', setup[0][c], 0, c);
+                this.board[1][c] = this.createPiece('white', 'pawn', 1, c);
+                this.board[6][c] = this.createPiece('black', 'pawn', 6, c);
+                this.board[7][c] = this.createPiece('black', setup[0][c], 7, c);
+            }
+        }
+
+        createPiece(color, type, row, col) {
+            return {
+                type: this.symbol(color, type),
+                pieceType: type,
+                color: color,
+                hasMoved: false,
+                id: `${color}_${type}_${row}_${col}_${Date.now()}`
+            };
+        }
+
+        symbol(color, type) {
+            const symbols = {
+                white: { rook:'♜', knight:'♞', bishop:'♝', queen:'♛', king:'♚', pawn:'♟' },
+                black: { rook:'♖', knight:'♘', bishop:'♗', queen:'♕', king:'♔', pawn:'♙' }
+            };
+            return symbols[color][type];
+        }
+
+        getValidMoves(row, col) {
+            // Simplified - in real implementation, use the full rules from your library
+            return [];
+        }
+
+        makeMove(from, to) {
+            // Record position before move
+            let hash = this.learner.hashPosition(this.board);
+            
+            // Make the move
+            this.board[to.row][to.col] = {...this.board[from.row][from.col], hasMoved: true};
+            this.board[from.row][from.col] = null;
+            
+            // Record move in history
+            let moveNotation = `${String.fromCharCode(97+from.col)}${from.row+1}-${String.fromCharCode(97+to.col)}${to.row+1}`;
+            this.moveHistory.push(moveNotation);
+            
+            // Update display
+            this.updateDisplay();
+            
+            return true;
+        }
+
+        getSuggestions() {
+            let hash = this.learner.hashPosition(this.board);
+            let pos = this.learner.db.positions.find(p => p.hash === hash);
+            
+            if(!pos) return [];
+            
+            return Object.entries(pos.moves)
+                .map(([move, stats]) => ({
+                    move: move,
+                    winRate: stats.wins / stats.played,
+                    played: stats.played
+                }))
+                .sort((a,b) => b.winRate - a.winRate)
+                .slice(0, 3);
+        }
+
+        updateDisplay() {
+            // Render board
+            let boardEl = document.getElementById('chessboard');
+            boardEl.innerHTML = '';
+            
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    let square = document.createElement('div');
+                    square.className = `square ${(r+c)%2===0 ? 'light' : 'dark'}`;
+                    square.dataset.row = r;
+                    square.dataset.col = c;
+                    
+                    let piece = this.board[r][c];
+                    if(piece) {
+                        square.textContent = piece.type;
+                    }
+                    
+                    if(this.selectedSquare?.row === r && this.selectedSquare?.col === c) {
+                        square.classList.add('selected');
+                    }
+                    
+                    square.addEventListener('click', () => this.handleClick(r,c));
+                    boardEl.appendChild(square);
+                }
+            }
+            
+            // Update learning panel
+            this.updateLearningPanel();
+        }
+
+        updateLearningPanel() {
+            let hash = this.learner.hashPosition(this.board);
+            let pos = this.learner.db.positions.find(p => p.hash === hash);
+            
+            document.getElementById('posGames').textContent = pos?.games_played || 0;
+            document.getElementById('posWinRate').textContent = pos ? 
+                ((pos.wins / pos.games_played * 100).toFixed(1) + '%') : '0%';
+            
+            let suggestions = this.getSuggestions();
+            let suggestionsHtml = suggestions.length ? suggestions.map(s => `
+                <div class="suggestion">
+                    <strong>${s.move}</strong>
+                    <div>Win rate: ${(s.winRate*100).toFixed(1)}% (${s.played} games)</div>
+                </div>
+            `).join('') : '<p>No data yet for this position</p>';
+            
+            document.getElementById('moveSuggestions').innerHTML = suggestionsHtml;
+            
+            let patterns = pos?.patterns || [];
+            document.getElementById('patternList').innerHTML = patterns.length ?
+                patterns.map(p => `<span class="pattern-tag">${p}</span>`).join('') :
+                '<p>No patterns detected</p>';
+        }
+
+        handleClick(row, col) {
+            if(this.mode === 'ai' && this.currentPlayer !== this.humanColor) return;
+            
+            if(this.selectedSquare) {
+                this.makeMove(this.selectedSquare, {row, col});
+                this.selectedSquare = null;
+                this.validMoves = [];
+                
+                if(this.mode === 'ai' && this.currentPlayer !== this.humanColor) {
+                    setTimeout(() => this.aiMove(), 500);
+                }
+            } else {
+                let piece = this.board[row][col];
+                if(piece && piece.color === this.currentPlayer) {
+                    this.selectedSquare = {row, col};
+                    this.validMoves = this.getValidMoves(row, col);
+                }
+            }
+            this.updateDisplay();
+        }
+
+        aiMove() {
+            // Simple AI that uses learned suggestions
+            let suggestions = this.getSuggestions();
+            if(suggestions.length > 0 && Math.random() < 0.7) {
+                // Use learned move
+                let move = suggestions[0].move;
+                let from = {row: 8-parseInt(move[1]), col: move.charCodeAt(0)-97};
+                let to = {row: 8-parseInt(move[3]), col: move.charCodeAt(2)-97};
+                this.makeMove(from, to);
+            } else {
+                // Random move as fallback
+                // ... implementation omitted for brevity
+            }
+            this.currentPlayer = this.humanColor;
+            this.updateDisplay();
+        }
+
+        recordGame(winner) {
+            // Record all positions from the game
+            // Implementation depends on how you store game history
+            this.learner.saveDatabase();
+        }
+    }
+
+    class RchessLearner {
+        constructor() {
+            this.db = this.loadDatabase();
+        }
+
+        loadDatabase() {
+            let data = localStorage.getItem('rchess_db');
+            return data ? JSON.parse(data) : {positions: [], games: []};
+        }
+
+        hashPosition(board) {
+            let str = '';
+            for(let r=0; r<8; r++) {
+                let empty = 0;
+                for(let c=0; c<8; c++) {
+                    if(board[r][c]) {
+                        if(empty > 0) str += empty;
+                        str += board[r][c].color[0] + board[r][c].pieceType[0];
+                        empty = 0;
+                    } else {
+                        empty++;
+                    }
+                }
+                if(empty > 0) str += empty;
+                if(r<7) str += '/';
+            }
+            return btoa(str).slice(0,8);
+        }
+
+        saveDatabase() {
+            localStorage.setItem('rchess_db', JSON.stringify(this.db));
+        }
+    }
+
+    let game;
+    window.onload = () => {
+        game = new RchessGame();
+        game.updateDisplay();
+    };
+
+    function setMode(mode) {
+        game.mode = mode;
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    function resetGame() {
+        game = new RchessGame();
+        game.updateDisplay();
+    }
+
+    function exportGame() {
+        let data = {
+            moves: game.moveHistory,
+            result: 'unknown',
+            timestamp: new Date().toISOString()
+        };
+        let blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = `rchess_game_${Date.now()}.json`;
+        a.click();
+    }
+    </script>
+</body>
+</html>
