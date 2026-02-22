@@ -297,39 +297,10 @@
 <script src="learner.js"></script>
 <script>
 (function() {
-    // Initialize learner
-    const learner = new RchessLearner();
-    
-    // Hook into existing game functions
-    // You'll need to modify the game code to call these:
-    
-    // 1. When game starts
-    learner.startGame();
-    
-    // 2. After each move (add this where moves are executed)
-    function afterMove(board, move, player) {
-        learner.recordPosition(board, player, move);
-    }
-    
-    // 3. When game ends (add this to game over detection)
-    function onGameOver(winner) {
-        learner.endGame(winner);
-    }
-    
-    // 4. For AI suggestions (modify computerMove function)
-    function getLearnedSuggestion(board, color) {
-        let hash = learner.hashPosition(board, color);
-        let suggestions = learner.getMoveSuggestions(hash, color);
-        return suggestions.length > 0 ? suggestions[0].move : null;
-    }
-    
-    // Make learner globally accessible
-    window.rchessLearner = learner;
-})();
-</script>
-
-<script>
-(function() {
+    // ===== INITIALIZE LEARNER =====
+    const learner = new RchessLearner('rchess_a1h1');
+    let currentGameId = null;
+        
     // ===== DISTRIBUTION GENERATOR (from a1.html) =====
     const DistributionGenerator = {
         symbols: {
@@ -1236,6 +1207,67 @@
     // Initialize
     createRandomBoard();
     renderBoard();
+
+    // ===== MODIFY YOUR EXISTING FUNCTIONS =====
+    
+    // 1. Modify your game initialization
+    const originalResetGame = window.resetGame || function() {};
+    window.resetGame = function() {
+        originalResetGame();
+        
+        // Start new game in learner
+        currentGameId = learner.startGame();
+        
+        // Record initial position
+        learner.recordPosition(board, currentPlayer);
+    };
+    
+    // 2. Modify your move function
+    const originalMakeMove = window.makeMove || function(from, to) {
+        // Your existing move logic
+    };
+    
+    window.makeMove = function(from, to) {
+        let result = originalMakeMove(from, to);
+        
+        if (result) {
+            // Record the move in learner
+            let moveNotation = `${String.fromCharCode(97+from.col)}${from.row+1}-${String.fromCharCode(97+to.col)}${to.row+1}`;
+            learner.recordPosition(board, currentPlayer, moveNotation);
+        }
+        
+        return result;
+    };
+    
+    // 3. Modify your game over detection
+    const originalCheckGameOver = window.checkForKingCapture || function() {};
+    
+    window.checkForKingCapture = function() {
+        let result = originalCheckGameOver();
+        
+        // If game is over, record result
+        if (window.gameOver) {
+            let winner = window.winner || null;
+            learner.endGame(winner);
+        }
+        
+        return result;
+    };
+    
+    // 4. Optional: Add AI suggestion function
+    window.getAISuggestion = function(color) {
+        let hash = learner.hashPosition(board, color);
+        let suggestions = learner.getMoveSuggestions(hash, color);
+        
+        if (suggestions.length > 0) {
+            console.log("AI Suggestion:", suggestions[0]);
+            return suggestions[0].move;
+        }
+        return null;
+    };
+    
+    // 5. Start first game automatically
+    window.resetGame();
 })();
 </script>
 </body>
