@@ -216,17 +216,43 @@
             this.render();
         }
 
-        loadDatabase() {
-            let data = localStorage.getItem('rchess_db');
-            if (data) return JSON.parse(data);
-            
-            // Sample data for demonstration
+        // In analyzer.html, replace the loadDatabase function:
+
+loadDatabase() {
+    // Try to load from localStorage first (where your game saves data)
+    let data = localStorage.getItem('rchess_db');
+    if (data) {
+        console.log("Loading from localStorage");
+        return JSON.parse(data);
+    }
+    
+    // If no localStorage data, try to fetch the games.db.json file
+    console.log("Fetching games.db.json");
+    fetch('/games.db.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Database file not found');
+            }
+            return response.json();
+        })
+        .then(dbData => {
+            console.log("Loaded database file:", dbData);
+            this.db = dbData;
+            this.render();
+        })
+        .catch(error => {
+            console.log("No database file found, using sample data");
+            // Fall back to sample data
             return {
                 positions: this.generateSamplePositions(),
                 games: [],
                 inconsistencies: []
             };
-        }
+        });
+    
+    // Return empty for now, fetch will update later
+    return {positions: [], games: [], inconsistencies: []};
+}
 
         generateSamplePositions() {
             let positions = [];
