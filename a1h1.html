@@ -812,9 +812,11 @@
         if (!whiteKingExists) {
             gameOver = true;
             winner = 'black';
+            learner.endGame('black');
         } else if (!blackKingExists) {
             gameOver = true;
             winner = 'white';
+            learner.endGame('white');
         }
         
         return gameOver;
@@ -902,6 +904,10 @@
             id: piece.id
         };
         board[from.row][from.col] = null;
+
+        // ADD THIS - record move in learner
+        let moveNotation = `${fromCol}${from.row+1}-${toCol}${to.row+1}`;
+        learner.recordPosition(board, currentPlayer, moveNotation);
 
         // Check for promotion
         if (piece.pieceType === 'pawn') {
@@ -1202,72 +1208,15 @@
         validMoves = [];
         updateHistoryDisplay();
         renderBoard();
+
+        // ADD THIS:
+        currentGameId = learner.startGame();
+        learner.recordPosition(board, currentPlayer);
     };
 
     // Initialize
     createRandomBoard();
-    renderBoard();
-
-    // ===== MODIFY YOUR EXISTING FUNCTIONS =====
-    
-    // 1. Modify your game initialization
-    const originalResetGame = window.resetGame || function() {};
-    window.resetGame = function() {
-        originalResetGame();
-        
-        // Start new game in learner
-        currentGameId = learner.startGame();
-        
-        // Record initial position
-        learner.recordPosition(board, currentPlayer);
-    };
-    
-    // 2. Modify your move function
-    const originalMakeMove = window.makeMove || function(from, to) {
-        // Your existing move logic
-    };
-    
-    window.makeMove = function(from, to) {
-        let result = originalMakeMove(from, to);
-        
-        if (result) {
-            // Record the move in learner
-            let moveNotation = `${String.fromCharCode(97+from.col)}${from.row+1}-${String.fromCharCode(97+to.col)}${to.row+1}`;
-            learner.recordPosition(board, currentPlayer, moveNotation);
-        }
-        
-        return result;
-    };
-    
-    // 3. Modify your game over detection
-    const originalCheckGameOver = window.checkForKingCapture || function() {};
-    
-    window.checkForKingCapture = function() {
-        let result = originalCheckGameOver();
-        
-        // If game is over, record result
-        if (window.gameOver) {
-            let winner = window.winner || null;
-            learner.endGame(winner);
-        }
-        
-        return result;
-    };
-    
-    // 4. Optional: Add AI suggestion function
-    window.getAISuggestion = function(color) {
-        let hash = learner.hashPosition(board, color);
-        let suggestions = learner.getMoveSuggestions(hash, color);
-        
-        if (suggestions.length > 0) {
-            console.log("AI Suggestion:", suggestions[0]);
-            return suggestions[0].move;
-        }
-        return null;
-    };
-    
-    // 5. Start first game automatically
-    window.resetGame();
+    renderBoard();  
 })();
 </script>
 </body>
