@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rchess · Analyzer Dashboard</title>
+    <link rel="stylesheet" href="/lib/rchess-styles.css">
+    <style>
+        body {
+            background: #1e4d1e;
+            font-family: 'Segoe UI', system-ui;
+            margin: 0;
+            padding: 20px;
+            color: white;
+        }
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: #2d5a2d;
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid #ebc28b;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #3b5e3b;
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #6f8c5d;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .panel {
+            background: #2d5a2d;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 2px solid #ebc28b;
+        }
+        .panel h2 {
+            margin-top: 0;
+            color: #ffde9e;
+            border-bottom: 2px dotted #aab57a;
+            padding-bottom: 10px;
+        }
+        .positions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .position-card {
+            background: #3b5e3b;
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #6f8c5d;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .position-card:hover {
+            transform: translateY(-2px);
+            border-color: #ffde9e;
+        }
+        .mini-board {
+            display: grid;
+            grid-template-columns: repeat(8, 25px);
+            grid-template-rows: repeat(8, 25px);
+            margin: 10px 0;
+            border: 2px solid #4a3c31;
+        }
+        .mini-square {
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .mini-square.light { background: #eed9b2; }
+        .mini-square.dark { background: #b58863; }
+        .move-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .win-rate {
+            color: #4caf50;
+        }
+        .loss-rate {
+            color: #f44336;
+        }
+        .inconsistency-item {
+            background: #5d3a2e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ffb4a2;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #f5c542;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn:hover {
+            background: #ffd966;
+            transform: scale(1.05);
+        }
+        .btn.secondary {
+            background: #4a6b4a;
+            color: white;
+        }
+        .tree-viz {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .tree-node {
+            background: #3b5e3b;
+            border: 2px solid #6f8c5d;
+            border-radius: 10px;
+            padding: 10px;
+            min-width: 200px;
+        }
+        .tree-node .move {
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        .tree-node .stats {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .pattern-tag {
+            display: inline-block;
+            background: #4a3c31;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 11px;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>📊 Rchess Learning Analyzer</h1>
+            <div class="button-group">
+                <button class="btn" onclick="exportDatabase()">💾 Export DB</button>
+                <input type="file" id="importFile" accept=".json,.db" style="display:none" onchange="importDatabase(this.files[0])">
+                <button class="btn secondary" onclick="document.getElementById('importFile').click()">📂 Import DB</button>
+                <button class="btn" onclick="resetDatabase()">🔄 Reset</button>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="stats">
+            <!-- Filled by JS -->
+        </div>
+
+        <div class="panel">
+            <h2>🎯 Most Interesting Inconsistencies</h2>
+            <div id="inconsistencies"></div>
+        </div>
+
+        <div class="panel">
+            <h2>♟️ Position Explorer</h2>
+            <div class="button-group">
+                <button class="btn secondary" onclick="sortBy('games')">📊 Most Played</button>
+                <button class="btn secondary" onclick="sortBy('inconsistency')">⚠️ Most Inconsistent</button>
+                <button class="btn secondary" onclick="sortBy('patterns')">🔍 By Pattern</button>
+            </div>
+            <div class="positions-grid" id="positionsList"></div>
+        </div>
+
+        <div class="panel">
+            <h2>🌳 Opening Tree Explorer</h2>
+            <div class="tree-viz" id="treeViz"></div>
+        </div>
+    </div>
+
+    <script src="/lib/rchess-distribution.js"></script>
+    <script>
+    class RchessAnalyzer {
+        constructor() {
+            this.db = this.loadDatabase();
+            this.render();
+        }
+
+        loadDatabase() {
+            let data = localStorage.getItem('rchess_db');
+            if (data) return JSON.parse(data);
+            
+            // Sample data for demonstration
+            return {
+                positions: this.generateSamplePositions(),
+                games: [],
+                inconsistencies: []
+            };
+        }
+
+        generateSamplePositions() {
+            let positions = [];
+            for(let i=0; i<20; i++) {
+                positions.push({
+                    hash: `pos_${i}`,
+                    fen: this.randomFEN(),
+                    evaluations: {
+                        white: Math.random(),
+                        black: Math.random() * -1,
+                        draw: Math.random() * 0.3
+                    },
+                    moves: this.randomMoves(),
+                    patterns: this.randomPatterns(),
+                    games_played: Math.floor(Math.random() * 50) + 5,
+                    wins: Math.floor(Math.random() * 30),
+                    losses: Math.floor(Math.random() * 30),
+                    draws: Math.floor(Math.random() * 10)
+                });
+            }
+            return positions;
+        }
+
+        randomFEN() {
+            return "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR";
+        }
+
+        randomMoves() {
+            let moves = {};
+            ['e2e4', 'd2d4', 'g1f3', 'c2c4'].forEach(m => {
+                moves[m] = {
+                    played: Math.floor(Math.random() * 20),
+                    wins: Math.floor(Math.random() * 10),
+                    losses: Math.floor(Math.random() * 10),
+                    draws: Math.floor(Math.random() * 5)
+                };
+            });
+            return moves;
+        }
+
+        randomPatterns() {
+            let all = ['center_control', 'king_safety', 'bishop_pair', 'doubled_pawns', 'open_file'];
+            let count = Math.floor(Math.random() * 3) + 1;
+            return all.sort(() => 0.5 - Math.random()).slice(0, count);
+        }
+
+        findInconsistencies() {
+            let inconsistencies = [];
+            for(let pos of this.db.positions) {
+                if(pos.games_played < 5) continue;
+                
+                let expected = 0.5; // Simplified
+                let actual = pos.wins / pos.games_played;
+                
+                if(Math.abs(expected - actual) > 0.2) {
+                    inconsistencies.push({
+                        hash: pos.hash,
+                        fen: pos.fen,
+                        expected: expected,
+                        actual: actual,
+                        games: pos.games_played,
+                        patterns: pos.patterns
+                    });
+                }
+            }
+            return inconsistencies.sort((a,b) => 
+                Math.abs(b.actual - b.expected) - Math.abs(a.actual - a.expected)
+            ).slice(0, 10);
+        }
+
+        renderStats() {
+            let stats = document.getElementById('stats');
+            let totalGames = this.db.games.length;
+            let totalPositions = this.db.positions.length;
+            let uniquePatterns = new Set();
+            this.db.positions.forEach(p => p.patterns?.forEach(pt => uniquePatterns.add(pt)));
+            
+            let inconsistencies = this.findInconsistencies();
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalGames}</div>
+                    <div class="stat-label">Games Recorded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalPositions}</div>
+                    <div class="stat-label">Unique Positions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${uniquePatterns.size}</div>
+                    <div class="stat-label">Patterns Detected</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${inconsistencies.length}</div>
+                    <div class="stat-label">Inconsistencies</div>
+                </div>
+            `;
+        }
+
+        renderInconsistencies() {
+            let container = document.getElementById('inconsistencies');
+            let inconsistencies = this.findInconsistencies();
+            
+            if(inconsistencies.length === 0) {
+                container.innerHTML = '<p>No significant inconsistencies found yet. Play more games!</p>';
+                return;
+            }
+            
+            container.innerHTML = inconsistencies.map(inc => `
+                <div class="inconsistency-item">
+                    <strong>Position ${inc.hash}</strong>
+                    <div>Expected: ${(inc.expected*100).toFixed(1)}% vs Actual: ${(inc.actual*100).toFixed(1)}%</div>
+                    <div>Games: ${inc.games}</div>
+                    <div>Patterns: ${inc.patterns?.map(p => `<span class="pattern-tag">${p}</span>`).join('')}</div>
+                    <button class="btn secondary" style="margin-top:10px" onclick="analyzer.showPosition('${inc.hash}')">Analyze</button>
+                </div>
+            `).join('');
+        }
+
+        renderPositions(sortBy = 'games') {
+            let container = document.getElementById('positionsList');
+            let positions = [...this.db.positions];
+            
+            if(sortBy === 'games') {
+                positions.sort((a,b) => b.games_played - a.games_played);
+            } else if(sortBy === 'inconsistency') {
+                positions.sort((a,b) => {
+                    let aInc = Math.abs(a.wins/a.games_played - 0.5);
+                    let bInc = Math.abs(b.wins/b.games_played - 0.5);
+                    return bInc - aInc;
+                });
+            }
+            
+            container.innerHTML = positions.slice(0, 20).map(pos => {
+                let winRate = (pos.wins / pos.games_played * 100).toFixed(1);
+                let topMoves = Object.entries(pos.moves || {})
+                    .sort((a,b) => b[1].played - a[1].played)
+                    .slice(0, 3);
+                
+                return `
+                    <div class="position-card" onclick="analyzer.showPosition('${pos.hash}')">
+                        <div><strong>${pos.hash}</strong></div>
+                        <div class="mini-board">${this.renderMiniBoard(pos.fen)}</div>
+                        <div>Games: ${pos.games_played} | Win: ${winRate}%</div>
+                        <div class="move-stats">
+                            ${topMoves.map(([move, stats]) => `
+                                <div>
+                                    ${move}: ${stats.wins}/${stats.played}
+                                    <span class="win-rate">(${(stats.wins/stats.played*100).toFixed(0)}%)</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div>${pos.patterns?.map(p => `<span class="pattern-tag">${p}</span>`).join('')}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        renderMiniBoard(fen) {
+            // Simple board visualization
+            let squares = [];
+            for(let i=0; i<64; i++) {
+                let row = Math.floor(i/8);
+                let col = i%8;
+                squares.push(`
+                    <div class="mini-square ${(row+col)%2===0 ? 'light' : 'dark'}">
+                        ${this.pieceFromFEN(fen, row, col)}
+                    </div>
+                `);
+            }
+            return squares.join('');
+        }
+
+        pieceFromFEN(fen, row, col) {
+            // Simplified - just return empty for demo
+            return '';
+        }
+
+        renderTree() {
+            let container = document.getElementById('treeViz');
+            // Show top opening lines
+            let openings = this.extractOpenings();
+            
+            container.innerHTML = openings.map(op => `
+                <div class="tree-node">
+                    <div class="move">${op.moves.join(' → ')}</div>
+                    <div class="stats">
+                        Games: ${op.games}<br>
+                        Win rate: ${(op.winRate*100).toFixed(1)}%
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        extractOpenings() {
+            // Simplified - in reality, you'd build this from game data
+            return [
+                {moves: ['e2e4', 'e7e5', 'g1f3'], games: 45, winRate: 0.52},
+                {moves: ['d2d4', 'd7d5', 'c2c4'], games: 38, winRate: 0.48},
+                {moves: ['e2e4', 'c7c5', 'g1f3'], games: 32, winRate: 0.55}
+            ];
+        }
+
+        showPosition(hash) {
+            // Navigate to game viewer with this position
+            window.location.href = `/games/classic.html?pos=${hash}`;
+        }
+
+        render() {
+            this.renderStats();
+            this.renderInconsistencies();
+            this.renderPositions();
+            this.renderTree();
+        }
+
+        sortBy(criteria) {
+            this.renderPositions(criteria);
+        }
+
+        exportDatabase() {
+            let data = JSON.stringify(this.db, null, 2);
+            let blob = new Blob([data], {type: 'application/json'});
+            let url = URL.createObjectURL(blob);
+            
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = `rchess_${new Date().toISOString().slice(0,10)}.db.json`;
+            a.click();
+        }
+
+        importDatabase(file) {
+            let reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    this.db = JSON.parse(e.target.result);
+                    localStorage.setItem('rchess_db', JSON.stringify(this.db));
+                    this.render();
+                    alert('Database imported successfully!');
+                } catch(e) {
+                    alert('Error importing database: ' + e.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        resetDatabase() {
+            if(confirm('Reset all learning data?')) {
+                localStorage.removeItem('rchess_db');
+                this.db = this.loadDatabase();
+                this.render();
+            }
+        }
+    }
+
+    let analyzer = new RchessAnalyzer();
+    window.analyzer = analyzer;
+    </script>
+</body>
+</html>
