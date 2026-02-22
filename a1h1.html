@@ -293,33 +293,39 @@
         </div>
     </div>
 </div>
+<!-- Add learner script -->
 <script src="learner.js"></script>
 <script>
+(function() {
     // Initialize learner
     const learner = new RchessLearner();
     
-    // Start a new game
+    // Hook into existing game functions
+    // You'll need to modify the game code to call these:
+    
+    // 1. When game starts
     learner.startGame();
     
-    // After each move:
-    function afterMove(board, move) {
-        learner.recordPosition(board, currentPlayer, move);
+    // 2. After each move (add this where moves are executed)
+    function afterMove(board, move, player) {
+        learner.recordPosition(board, player, move);
     }
     
-    // When game ends:
-    function gameOver(winner) {
-        learner.endGame(winner); // 'white', 'black', or 'draw'
+    // 3. When game ends (add this to game over detection)
+    function onGameOver(winner) {
+        learner.endGame(winner);
     }
     
-    // To get suggestions:
-    function getAISuggestion(board) {
-        let hash = learner.hashPosition(board, currentPlayer);
-        let suggestions = learner.getMoveSuggestions(hash, 'black');
-        if (suggestions.length > 0) {
-            return suggestions[0].move; // Best move
-        }
-        return null;
+    // 4. For AI suggestions (modify computerMove function)
+    function getLearnedSuggestion(board, color) {
+        let hash = learner.hashPosition(board, color);
+        let suggestions = learner.getMoveSuggestions(hash, color);
+        return suggestions.length > 0 ? suggestions[0].move : null;
     }
+    
+    // Make learner globally accessible
+    window.rchessLearner = learner;
+})();
 </script>
 
 <script>
@@ -351,7 +357,7 @@
             
             for (let r of rows) {
                 for (let c = 0; c < 8; c++) {
-                    if (this.getSquareColor(r, c) === 'light') {
+                    if (this.gtSquareColor(r, c) === 'light') {
                         lightSquares.push({row: r, col: c});
                     } else {
                         darkSquares.push({row: r, col: c});
