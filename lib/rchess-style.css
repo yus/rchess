@@ -1,0 +1,75 @@
+/* rchess-styles.css */
+.rchess-board {
+    display: grid;
+    grid-template-columns: repeat(8, 70px);
+    grid-template-rows: repeat(8, 70px);
+    border: 5px solid #4a3c31;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 15px rgba(0,0,0,0.5);
+}
+
+.rchess-square {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    cursor: pointer;
+    transition: 0.08s;
+    position: relative;
+    width: 70px;
+    height: 70px;
+}
+
+.rchess-square.light { background: #eed9b2; }
+.rchess-square.dark { background: #b58863; }
+.rchess-square.selected {
+    outline: 4px solid #ffb703;
+    outline-offset: -3px;
+    filter: brightness(1.1);
+    z-index: 2;
+    background: #ffe68f !important;
+}
+
+.rchess-square.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: rgba(0, 200, 0, 0.5);
+    border-radius: 50%;
+    pointer-events: none;
+    border: 2px solid white;
+}
+
+.rchess-square.capture-move::after {
+    background: rgba(200, 50, 50, 0.6);
+    border-radius: 0;
+    transform: rotate(45deg);
+    width: 25px;
+    height: 25px;
+}
+
+.rchess-square.last-move {
+    box-shadow: inset 0 0 0 4px #4290ff;
+}
+
+.rchess-square.check-square {
+    background: rgba(255, 0, 0, 0.3) !important;
+}
+
+.backrank-pawn {
+    position: relative;
+    display: inline-block;
+}
+
+.backrank-pawn::after {
+    content: '¹';
+    position: absolute;
+    top: -8px;
+    right: -12px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #cc0000;
+    text-shadow: 1px 1px 0 white;
+}
