@@ -1,0 +1,38 @@
+// games.db.json - Simple JSON database
+{
+  "positions": [
+    {
+      "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR",
+      "hash": "a1b2c3d4",
+      "evaluations": {
+        "white": 0.15,  // Win probability
+        "black": -0.15,
+        "draw": 0.02
+      },
+      "moves": {
+        "e2e4": {"played": 15, "wins": 8, "losses": 5, "draws": 2},
+        "d2d4": {"played": 12, "wins": 6, "losses": 4, "draws": 2},
+        "g1f3": {"played": 5, "wins": 2, "losses": 2, "draws": 1}
+      },
+      "patterns": ["center_control", "king_safety"],
+      "last_seen": "2026-02-22"
+    }
+  ],
+  "games": [
+    {
+      "id": "game_001",
+      "moves": ["e2e4", "e7e5", "g1f3", ...],
+      "result": "white",
+      "positions": ["hash1", "hash2", "hash3"],
+      "timestamp": "2026-02-22T10:30:00Z"
+    }
+  ],
+  "inconsistencies": [
+    {
+      "position": "hash_xyz",
+      "expected": "white_advantage",
+      "actual": "black_won",
+      "count": 3
+    }
+  ]
+}
