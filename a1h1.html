@@ -295,6 +295,34 @@
 </div>
 <script src="learner.js"></script>
 <script>
+    // Initialize learner
+    const learner = new RchessLearner();
+    
+    // Start a new game
+    learner.startGame();
+    
+    // After each move:
+    function afterMove(board, move) {
+        learner.recordPosition(board, currentPlayer, move);
+    }
+    
+    // When game ends:
+    function gameOver(winner) {
+        learner.endGame(winner); // 'white', 'black', or 'draw'
+    }
+    
+    // To get suggestions:
+    function getAISuggestion(board) {
+        let hash = learner.hashPosition(board, currentPlayer);
+        let suggestions = learner.getMoveSuggestions(hash, 'black');
+        if (suggestions.length > 0) {
+            return suggestions[0].move; // Best move
+        }
+        return null;
+    }
+</script>
+
+<script>
 (function() {
     // ===== DISTRIBUTION GENERATOR (from a1.html) =====
     const DistributionGenerator = {
