@@ -328,7 +328,7 @@
             
             for (let r of rows) {
                 for (let c = 0; c < 8; c++) {
-                    if (this.gtSquareColor(r, c) === 'light') {
+                    if (this.getSquareColor(r, c) === 'light') {
                         lightSquares.push({row: r, col: c});
                     } else {
                         darkSquares.push({row: r, col: c});
