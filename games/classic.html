@@ -869,36 +869,66 @@
         }
 
         recordGameResult(result) {
-            const positions = [];
+            // Get all positions from the game
             const history = this.chess.history({ verbose: true });
             let tempChess = new Chess();
+            let moveNumber = 0;
             
+            // Track which moves were made by AI vs Human
             for (let move of history) {
                 tempChess.move(move);
+                moveNumber++;
                 const hash = this.learner.hashPosition(tempChess.board());
-                positions.push(hash);
-            }
-            
-            for (let hash of positions) {
-                const pos = this.learner.db.positions.find(p => p.hash === hash);
-                if (pos) {
-                    pos.games_played++;
-                    if (result === 'white' || result === 'black') {
-                        pos.wins += 1;
+                
+                // Determine who made this move
+                const moveColor = moveNumber % 2 === 1 ? 'white' : 'black';
+                const isAIMove = moveColor === this.aiColor;
+                
+                // Only record positions that the AI contributed to
+                if (isAIMove) {
+                    let pos = this.learner.db.positions.find(p => p.hash === hash);
+                    if (!pos) {
+                        pos = {
+                            hash: hash,
+                            moves: {},
+                            games_played: 0,
+                            wins: 0,
+                            patterns: []
+                        };
+                        this.learner.db.positions.push(pos);
+                    }
+                    
+                    pos.games_played = (pos.games_played || 0) + 1;
+                    
+                    // Record the move that was made
+                    if (!pos.moves[move.san]) {
+                        pos.moves[move.san] = { played: 0, wins: 0 };
+                    }
+                    pos.moves[move.san].played = (pos.moves[move.san].played || 0) + 1;
+                    
+                    // Only count as win if AI won the game
+                    const isAIWin = (result === 'white' && this.aiColor === 'white') ||
+                                   (result === 'black' && this.aiColor === 'black');
+                    if (isAIWin) {
+                        pos.wins = (pos.wins || 0) + 1;
+                        pos.moves[move.san].wins = (pos.moves[move.san].wins || 0) + 1;
                     }
                 }
             }
             
+            // Update global stats
+            const stats = this.learner.db.stats;
             if (result === 'white') {
-                this.learner.db.stats.whiteWins = (this.learner.db.stats.whiteWins || 0) + 1;
+                stats.whiteWins = (stats.whiteWins || 0) + 1;
             } else if (result === 'black') {
-                this.learner.db.stats.blackWins = (this.learner.db.stats.blackWins || 0) + 1;
+                stats.blackWins = (stats.blackWins || 0) + 1;
             } else {
-                this.learner.db.stats.draws = (this.learner.db.stats.draws || 0) + 1;
+                stats.draws = (stats.draws || 0) + 1;
             }
-            this.learner.db.stats.totalGames = (this.learner.db.stats.totalGames || 0) + 1;
+            stats.totalGames = (stats.totalGames || 0) + 1;
             
             this.learner.saveDatabase();
+            this.updateLearningPanel();
         }
 
         updateLearningPanel() {
