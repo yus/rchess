@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rchess · Classic with AI</title>
-    <link rel="stylesheet" href="../lib/rchess-style.css">
+    <!-- link rel="stylesheet" href="../lib/rchess-style.css" -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             background: #1e4d1e;
             font-family: 'Segoe UI', system-ui;
@@ -17,6 +22,7 @@
             align-items: center;
             min-height: 100vh;
         }
+        
         .game-container {
             background: #2d5a2d;
             padding: 25px;
@@ -25,62 +31,139 @@
             max-width: 1200px;
             width: 100%;
         }
+        
         .game-layout {
             display: grid;
             grid-template-columns: 1fr 300px;
             gap: 20px;
         }
+        
+        /* ===== FIXED BOARD - FIREFOX COMPATIBLE ===== */
         .board-container {
             display: flex;
             justify-content: center;
+            align-items: flex-start;
+            width: 100%;
         }
+        
+        .board-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+        }
+        
+        /* Creates square aspect ratio using padding trick */
+        .board-wrapper::before {
+            content: '';
+            display: block;
+            padding-bottom: 100%; /* 1:1 = square */
+        }
+        
         .board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             display: grid;
-            grid-template-columns: repeat(8, 70px);
-            grid-template-rows: repeat(8, 70px);
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
             border: 5px solid #4a3c31;
             border-radius: 8px;
             overflow: hidden;
+            background: #b58863;
         }
+        
         .square {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
             cursor: pointer;
             position: relative;
+            font-size: clamp(20px, 4vw, 42px);
+            user-select: none;
+            -webkit-user-select: none;
+            /* Firefox fix - prevent overflow */
+            min-width: 0;
+            min-height: 0;
+            aspect-ratio: 1 / 1;
         }
+        
         .square.light { background: #eed9b2; }
         .square.dark { background: #b58863; }
+        
         .square.selected {
             outline: 4px solid #ffb703;
             outline-offset: -3px;
             filter: brightness(1.1);
+            z-index: 1;
         }
+        
         .square.valid-move::after {
             content: '';
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 25%;
+            height: 25%;
             background: rgba(0, 200, 0, 0.5);
             border-radius: 50%;
+            pointer-events: none;
         }
+        
         .square.last-move {
             background: rgba(255, 255, 0, 0.3) !important;
         }
+        
+        /* Firefox specific fixes */
+        @-moz-document url-prefix() {
+            .square {
+                /* In Firefox, ensure flex works properly */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 0;
+                min-width: 0;
+            }
+            
+            /* Fallback for Firefox if aspect-ratio fails */
+            .square::before {
+                content: '';
+                display: block;
+                padding-bottom: 100%;
+                width: 0;
+                height: 0;
+                visibility: hidden;
+                flex-shrink: 0;
+            }
+            
+            .square .piece {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+        }
+        /* ===== END BOARD FIX ===== */
+        
+        /* ===== SIDEBAR ===== */
         .sidebar {
             background: #3b5e3b;
             border-radius: 18px;
             padding: 20px;
             color: white;
             border: 2px solid #6f8c5d;
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
+        
         .learning-panel {
             margin-top: 20px;
             padding: 15px;
             background: #2d4d2d;
             border-radius: 15px;
         }
+        
         .suggestion {
             background: #4a3c31;
             padding: 10px;
@@ -94,6 +177,7 @@
             transform: scale(1.02);
             border-left-color: #ff6b6b;
         }
+        
         .stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -111,6 +195,7 @@
             font-weight: bold;
             color: #ffde9e;
         }
+        
         .mode-selector {
             display: flex;
             gap: 10px;
@@ -135,6 +220,7 @@
             transform: scale(1.02);
             opacity: 0.9;
         }
+        
         button {
             padding: 10px 20px;
             border: none;
@@ -157,10 +243,12 @@
             background: #c0392b;
             color: white;
         }
+        
         .history-box {
             margin-top: 20px;
             max-height: 200px;
             overflow-y: auto;
+            flex-shrink: 0;
         }
         .history-box h3 {
             margin-bottom: 10px;
@@ -176,6 +264,7 @@
             border-radius: 4px;
             font-size: 14px;
         }
+        
         .turn-indicator {
             font-size: 18px;
             padding: 10px;
@@ -184,6 +273,7 @@
             text-align: center;
             margin-bottom: 15px;
         }
+        
         .pattern-tag {
             display: inline-block;
             background: #4a3c31;
@@ -192,6 +282,71 @@
             margin: 3px;
             font-size: 12px;
         }
+        
+        .mode-status {
+            font-size: 14px;
+            padding: 5px 10px;
+            background: #2d4d2d;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .color-indicator {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        .color-white {
+            background: #ffffff;
+            color: #1e4d1e;
+        }
+        .color-black {
+            background: #1a1a1a;
+            color: white;
+        }
+        
+        .ai-stats {
+            background: #2d4d2d;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        .ai-stats .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #3b5e3b;
+        }
+        .ai-stats .stat-item:last-child {
+            border-bottom: none;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-group button {
+            flex: 1;
+        }
+        
+        .thinking {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* ===== PROMOTION DIALOG ===== */
         .promotion-dialog {
             position: fixed;
             top: 0;
@@ -232,64 +387,8 @@
             transform: scale(1.1);
             border-color: #f5c542;
         }
-        .mode-status {
-            font-size: 14px;
-            padding: 5px 10px;
-            background: #2d4d2d;
-            border-radius: 10px;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        .color-indicator {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-left: 5px;
-        }
-        .color-white {
-            background: #ffffff;
-            color: #1e4d1e;
-        }
-        .color-black {
-            background: #1a1a1a;
-            color: white;
-        }
-        .ai-stats {
-            background: #2d4d2d;
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-        .ai-stats .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid #3b5e3b;
-        }
-        .ai-stats .stat-item:last-child {
-            border-bottom: none;
-        }
-        .stat-value {
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn-group button {
-            flex: 1;
-        }
-        .thinking {
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
+        
+        /* ===== TOAST ===== */
         .toast {
             position: fixed;
             bottom: 20px;
@@ -302,28 +401,7 @@
             border: 2px solid #ebc28b;
             display: none;
             z-index: 2000;
-        }
-        .toast.show {
-            display: block;
-            animation: slideUp 0.3s ease;
-        }
-        @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d5a2d;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 12px;
-            border: 2px solid #ebc28b;
-            display: none;
-            z-index: 2000;
-            max-width: 80%;
+            max-width: 90%;
             text-align: center;
         }
         .toast.show {
@@ -343,13 +421,14 @@
             from { transform: translateX(-50%) translateY(100px); opacity: 0; }
             to { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
+        
         .file-indicator {
             background: #2d4d2d;
             padding: 8px 12px;
             border-radius: 8px;
             margin-top: 10px;
             font-size: 12px;
-            border-left: 3px solid #4CAF50;
+            border-left: 3px solid #ff9800;
         }
         .file-indicator.loaded {
             border-left-color: #4CAF50;
@@ -357,13 +436,61 @@
         .file-indicator.missing {
             border-left-color: #ff9800;
         }
+        
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 900px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .board-wrapper {
+                max-width: 100%;
+            }
+            
+            .sidebar {
+                max-height: none;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .game-container {
+                padding: 15px;
+            }
+            
+            .square {
+                font-size: clamp(16px, 5vw, 28px);
+            }
+            
+            .promotion-btn {
+                font-size: 40px;
+                width: 60px;
+                height: 60px;
+            }
+            
+            .mode-selector {
+                flex-wrap: wrap;
+            }
+            
+            .mode-btn {
+                min-width: 60px;
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="game-container">
         <div class="game-layout">
             <div class="board-container">
-                <div class="board" id="chessboard"></div>
+                <div class="board-wrapper">
+                    <div class="board" id="chessboard"></div>
+                </div>
             </div>
             
             <div class="sidebar">
@@ -413,7 +540,6 @@
                         </div>
                     </div>
                     
-                    <!-- Auto-loaded files indicator -->
                     <div id="fileIndicator" class="file-indicator missing">
                         🔍 Checking for saved files...
                     </div>
@@ -458,6 +584,7 @@
     <div class="toast" id="toast"></div>
 
     <script>
+    // ===== FULL JAVASCRIPT (same as before) =====
     class RchessGame {
         constructor() {
             this.chess = new Chess();
@@ -472,9 +599,7 @@
             this.gameResult = null;
             this.isAIThinking = false;
             
-            // Try to load auto-saved game first
             this.loadAutoSave();
-            
             this.updateDisplay();
             
             if (this.mode === 'ai' && this.aiColor === 'white') {
@@ -485,15 +610,12 @@
         }
 
         loadAutoSave() {
-            // Check for auto-saved game in localStorage
             const autoSave = localStorage.getItem('rchess_autosave');
             if (autoSave) {
                 try {
                     const data = JSON.parse(autoSave);
-                    // Only load if the game isn't over
                     if (data.moves && data.moves.length > 0 && !data.gameOver) {
                         this.chess = new Chess();
-                        // Replay moves
                         for (let move of data.moves) {
                             this.chess.move(move);
                         }
@@ -512,7 +634,6 @@
         }
 
         autoSaveGame() {
-            // Save current game state
             const data = {
                 moves: this.moveHistory,
                 playerColor: this.playerColor,
@@ -546,7 +667,7 @@
                     this.moveHistory.push(move.san);
                     this.selectedSquare = null;
                     this.recordPosition();
-                    this.autoSaveGame(); // Auto-save after each move
+                    this.autoSaveGame();
                     this.updateDisplay();
                     return true;
                 }
@@ -627,7 +748,7 @@
                 if (result) {
                     this.moveHistory.push(result.san);
                     this.recordPosition();
-                    this.autoSaveGame(); // Auto-save after AI move
+                    this.autoSaveGame();
                 }
                 
                 this.isAIThinking = false;
@@ -743,7 +864,6 @@
                 }
                 document.getElementById('turnDisplay').textContent = `Game Over - ${result}`;
                 this.recordGameResult(this.gameResult);
-                // Clear auto-save when game is over
                 localStorage.removeItem('rchess_autosave');
             }
         }
@@ -917,7 +1037,6 @@
     class RchessLearner {
         constructor() {
             this.db = this.loadDatabase();
-            // Try to load external knowledge file
             this.loadExternalKnowledge();
         }
 
@@ -934,12 +1053,9 @@
         }
 
         loadExternalKnowledge() {
-            // Try to load from the same directory
-            // This will only work if served via a web server
             fetch('ai_knowledge.json')
                 .then(response => {
                     if (!response.ok) {
-                        // Try alternative filenames
                         return fetch('rchess_ai_knowledge.json');
                     }
                     return response;
@@ -952,7 +1068,6 @@
                 })
                 .then(data => {
                     if (data && data.positions) {
-                        // Merge with existing knowledge
                         let loadedCount = 0;
                         for (let pos of data.positions) {
                             const existing = this.db.positions.find(p => p.hash === pos.hash);
@@ -960,7 +1075,6 @@
                                 this.db.positions.push(pos);
                                 loadedCount++;
                             } else {
-                                // Merge move data
                                 for (let [move, stats] of Object.entries(pos.moves)) {
                                     if (!existing.moves[move]) {
                                         existing.moves[move] = { played: 0, wins: 0 };
@@ -968,13 +1082,11 @@
                                     existing.moves[move].played += stats.played || 0;
                                     existing.moves[move].wins += stats.wins || 0;
                                 }
-                                // Update games_played and wins
                                 existing.games_played = (existing.games_played || 0) + (pos.games_played || 0);
                                 existing.wins = (existing.wins || 0) + (pos.wins || 0);
                             }
                         }
                         
-                        // Update stats if present
                         if (data.stats) {
                             this.db.stats.totalGames = (this.db.stats.totalGames || 0) + (data.stats.totalGames || 0);
                             this.db.stats.whiteWins = (this.db.stats.whiteWins || 0) + (data.stats.whiteWins || 0);
@@ -984,7 +1096,6 @@
                         
                         this.saveDatabase();
                         
-                        // Update indicator
                         document.getElementById('fileIndicator').className = 'file-indicator loaded';
                         document.getElementById('fileIndicator').innerHTML = 
                             `✅ Loaded AI knowledge (${loadedCount} new positions)`;
@@ -993,7 +1104,6 @@
                     }
                 })
                 .catch(() => {
-                    // No external file found, check for any JSON files
                     document.getElementById('fileIndicator').className = 'file-indicator missing';
                     document.getElementById('fileIndicator').innerHTML = 
                         '📁 No external knowledge file found. Using local data.';
@@ -1069,7 +1179,6 @@
         game = new RchessGame();
         game.updateDisplay();
         document.getElementById('promotionDialog').classList.remove('active');
-        // Clear auto-save on new game
         localStorage.removeItem('rchess_autosave');
         showToast('🎲 New game started!', 'success');
     }
@@ -1103,12 +1212,10 @@
             version: '1.0'
         };
 
-        // Save to localStorage
         const games = JSON.parse(localStorage.getItem('rchess_games') || '[]');
         games.push(gameData);
         localStorage.setItem('rchess_games', JSON.stringify(games));
 
-        // Download as JSON
         const blob = new Blob([JSON.stringify(gameData, null, 2)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
