@@ -598,6 +598,7 @@
             this.aiColor = this.playerColor === 'white' ? 'black' : 'white';
             this.gameResult = null;
             this.isAIThinking = false;
+            this.gameRecorded = false; // Track if game result was already recorded
             
             this.loadAutoSave();
             this.updateDisplay();
@@ -623,6 +624,7 @@
                         this.playerColor = data.playerColor || 'white';
                         this.aiColor = this.playerColor === 'white' ? 'black' : 'white';
                         this.gameOver = false;
+                        this.gameRecorded = false;
                         showToast('🔄 Auto-saved game restored!', 'success');
                         return true;
                     }
@@ -634,6 +636,10 @@
         }
 
         autoSaveGame() {
+            if (this.gameOver) {
+                localStorage.removeItem('rchess_autosave');
+                return;
+            }
             const data = {
                 moves: this.moveHistory,
                 playerColor: this.playerColor,
@@ -666,7 +672,7 @@
                 if (move) {
                     this.moveHistory.push(move.san);
                     this.selectedSquare = null;
-                    this.recordPosition();
+                    this.recordPosition(move.san);
                     this.autoSaveGame();
                     this.updateDisplay();
                     return true;
@@ -677,7 +683,7 @@
             return false;
         }
 
-        recordPosition() {
+        recordPosition(moveSan) {
             const hash = this.learner.hashPosition(this.chess.board());
             let pos = this.learner.db.positions.find(p => p.hash === hash);
             
@@ -692,12 +698,12 @@
                 this.learner.db.positions.push(pos);
             }
             
-            const lastMove = this.moveHistory[this.moveHistory.length - 1];
-            if (lastMove) {
-                if (!pos.moves[lastMove]) {
-                    pos.moves[lastMove] = { played: 0, wins: 0 };
+            // Record the move
+            if (moveSan) {
+                if (!pos.moves[moveSan]) {
+                    pos.moves[moveSan] = { played: 0, wins: 0 };
                 }
-                pos.moves[lastMove].played++;
+                pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
             }
             
             this.learner.saveDatabase();
@@ -747,7 +753,7 @@
                 const result = this.chess.move(move);
                 if (result) {
                     this.moveHistory.push(result.san);
-                    this.recordPosition();
+                    this.recordPosition(result.san);
                     this.autoSaveGame();
                 }
                 
@@ -844,74 +850,73 @@
                 `<span>${i+1}. ${m}</span>`
             ).join('');
             
-            // Check game over
-            if (this.chess.game_over() && !this.gameOver) {
+            // Check game over - ONLY ONCE
+            if (this.chess.game_over() && !this.gameOver && !this.gameRecorded) {
                 this.gameOver = true;
                 let result = 'Draw';
+                let winner = null;
+                
                 if (this.chess.in_checkmate()) {
-                    const winner = this.chess.turn() === 'w' ? 'Black' : 'White';
-                    result = `${winner} wins by checkmate!`;
-                    this.gameResult = winner.toLowerCase();
+                    const winningColor = this.chess.turn() === 'w' ? 'Black' : 'White';
+                    result = `${winningColor} wins by checkmate!`;
+                    winner = winningColor.toLowerCase();
                 } else if (this.chess.in_stalemate()) {
                     result = 'Stalemate - Draw';
-                    this.gameResult = 'draw';
+                    winner = 'draw';
                 } else if (this.chess.in_threefold_repetition()) {
                     result = 'Draw by repetition';
-                    this.gameResult = 'draw';
+                    winner = 'draw';
                 } else if (this.chess.insufficient_material()) {
                     result = 'Draw - Insufficient material';
-                    this.gameResult = 'draw';
+                    winner = 'draw';
                 }
+                
                 document.getElementById('turnDisplay').textContent = `Game Over - ${result}`;
-                this.recordGameResult(this.gameResult);
+                this.gameResult = winner;
+                this.gameRecorded = true;
+                
+                // Record the game result
+                this.recordGameResult(winner);
                 localStorage.removeItem('rchess_autosave');
             }
         }
 
         recordGameResult(result) {
-            // Get all positions from the game
-            const history = this.chess.history({ verbose: true });
-            let tempChess = new Chess();
-            let moveNumber = 0;
+            // Only record the result if we have moves
+            if (this.moveHistory.length === 0) return;
             
-            // Track which moves were made by AI vs Human
-            for (let move of history) {
-                tempChess.move(move);
-                moveNumber++;
+            // Get all positions from the game with side information
+            const tempChess = new Chess();
+            const positionHistory = [];
+            
+            for (let i = 0; i < this.moveHistory.length; i++) {
+                const moveSan = this.moveHistory[i];
+                tempChess.move(moveSan);
                 const hash = this.learner.hashPosition(tempChess.board());
-                
-                // Determine who made this move
-                const moveColor = moveNumber % 2 === 1 ? 'white' : 'black';
-                const isAIMove = moveColor === this.aiColor;
-                
-                // Only record positions that the AI contributed to
-                if (isAIMove) {
-                    let pos = this.learner.db.positions.find(p => p.hash === hash);
-                    if (!pos) {
-                        pos = {
-                            hash: hash,
-                            moves: {},
-                            games_played: 0,
-                            wins: 0,
-                            patterns: []
-                        };
-                        this.learner.db.positions.push(pos);
-                    }
-                    
-                    pos.games_played = (pos.games_played || 0) + 1;
-                    
-                    // Record the move that was made
-                    if (!pos.moves[move.san]) {
-                        pos.moves[move.san] = { played: 0, wins: 0 };
-                    }
-                    pos.moves[move.san].played = (pos.moves[move.san].played || 0) + 1;
-                    
-                    // Only count as win if AI won the game
-                    const isAIWin = (result === 'white' && this.aiColor === 'white') ||
-                                   (result === 'black' && this.aiColor === 'black');
-                    if (isAIWin) {
-                        pos.wins = (pos.wins || 0) + 1;
-                        pos.moves[move.san].wins = (pos.moves[move.san].wins || 0) + 1;
+                // The side that made the move
+                const side = i % 2 === 0 ? 'white' : 'black';
+                positionHistory.push({ hash, side, move: moveSan });
+            }
+            
+            // Update each position based on result
+            for (let pos of positionHistory) {
+                const dbPos = this.learner.db.positions.find(p => p.hash === pos.hash);
+                if (dbPos) {
+                    // Only count positions where the AI made the move
+                    if (pos.side === this.aiColor) {
+                        dbPos.games_played = (dbPos.games_played || 0) + 1;
+                        
+                        // Check if AI won
+                        const isAIWin = (result === 'white' && this.aiColor === 'white') ||
+                                       (result === 'black' && this.aiColor === 'black');
+                        
+                        if (isAIWin) {
+                            dbPos.wins = (dbPos.wins || 0) + 1;
+                            // Also update the specific move's win rate
+                            if (dbPos.moves[pos.move]) {
+                                dbPos.moves[pos.move].wins = (dbPos.moves[pos.move].wins || 0) + 1;
+                            }
+                        }
                     }
                 }
             }
@@ -922,7 +927,7 @@
                 stats.whiteWins = (stats.whiteWins || 0) + 1;
             } else if (result === 'black') {
                 stats.blackWins = (stats.blackWins || 0) + 1;
-            } else {
+            } else if (result === 'draw') {
                 stats.draws = (stats.draws || 0) + 1;
             }
             stats.totalGames = (stats.totalGames || 0) + 1;
@@ -1073,7 +1078,11 @@
         loadDatabase() {
             let data = localStorage.getItem('rchess_db');
             if (data) {
-                return JSON.parse(data);
+                try {
+                    return JSON.parse(data);
+                } catch (e) {
+                    console.error('Failed to parse database:', e);
+                }
             }
             return { 
                 positions: [], 
@@ -1161,7 +1170,11 @@
         }
 
         saveDatabase() {
-            localStorage.setItem('rchess_db', JSON.stringify(this.db));
+            try {
+                localStorage.setItem('rchess_db', JSON.stringify(this.db));
+            } catch (e) {
+                console.error('Failed to save database:', e);
+            }
         }
 
         reset() {
@@ -1195,6 +1208,46 @@
         });
     };
 
+    // ===== FIXED resetGame - preserves learner data =====
+    function resetGame() {
+        if (!game) return;
+        
+        // Preserve the learner data
+        const learnerData = game.learner.db;
+        
+        // Reset the game state
+        game.chess = new Chess();
+        game.selectedSquare = null;
+        game.moveHistory = [];
+        game.pendingPromotion = null;
+        game.gameOver = false;
+        game.gameRecorded = false;
+        game.gameResult = null;
+        game.isAIThinking = false;
+        
+        // Randomize colors
+        game.playerColor = Math.random() < 0.5 ? 'white' : 'black';
+        game.aiColor = game.playerColor === 'white' ? 'black' : 'white';
+        
+        // Restore the learner data
+        game.learner.db = learnerData;
+        
+        // Clear auto-save
+        localStorage.removeItem('rchess_autosave');
+        
+        // Update display
+        game.updateDisplay();
+        document.getElementById('promotionDialog').classList.remove('active');
+        showToast('🎲 New game started!', 'success');
+        
+        // If AI starts as white, make the first move
+        if (game.mode === 'ai' && game.aiColor === 'white') {
+            setTimeout(() => {
+                game.aiMove();
+            }, 500);
+        }
+    }
+
     function setMode(mode) {
         if (!game) return;
         game.mode = mode;
@@ -1203,14 +1256,6 @@
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
         game.updateDisplay();
-    }
-
-    function resetGame() {
-        game = new RchessGame();
-        game.updateDisplay();
-        document.getElementById('promotionDialog').classList.remove('active');
-        localStorage.removeItem('rchess_autosave');
-        showToast('🎲 New game started!', 'success');
     }
 
     function resetAI() {
@@ -1287,7 +1332,7 @@
                 game.handleClick(toRow, toCol);
             }, 100);
         }
-    }
+    }    
     </script>
 </body>
 </html>
