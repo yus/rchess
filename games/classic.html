@@ -875,10 +875,11 @@
             }
         }
 
-        // ===== FIXED: Record stats by player type, not color =====
+        // ===== REPLACE recordGameResult() with this =====
         recordGameResult(result) {
             if (this.moveHistory.length === 0 || !this.gameId) return;
             
+            // Check if this game was already recorded
             const recordedGames = JSON.parse(localStorage.getItem('rchess_recorded_games') || '[]');
             if (recordedGames.includes(this.gameId)) {
                 console.log('Game already recorded, skipping...');
@@ -896,13 +897,13 @@
                 positionHistory.push({ hash, side, move: moveSan });
             }
             
-            // Determine who won
+            // Determine who won from the result
             const isAIWin = (result === 'white' && this.aiColor === 'white') ||
                            (result === 'black' && this.aiColor === 'black');
             const isHumanWin = (result === 'white' && this.playerColor === 'white') ||
                               (result === 'black' && this.playerColor === 'black');
             
-            // Update position stats (only for AI positions)
+            // Update position stats
             for (let pos of positionHistory) {
                 const dbPos = this.learner.db.positions.find(p => p.hash === pos.hash);
                 if (dbPos && pos.side === this.aiColor) {
@@ -916,29 +917,30 @@
                 }
             }
             
-            // ===== FIXED: Store stats by player type =====
+            // ===== FIXED: Store stats by player type, not color =====
             const stats = this.learner.db.stats;
+            // Initialize player-type stats if they don't exist
             if (!stats.aiWins) stats.aiWins = 0;
             if (!stats.humanWins) stats.humanWins = 0;
             if (!stats.draws) stats.draws = 0;
             if (!stats.totalGames) stats.totalGames = 0;
             
+            // Increment the correct stat based on who won
             if (isAIWin) {
-                stats.aiWins++;
+                stats.aiWins = (stats.aiWins || 0) + 1;
             } else if (isHumanWin) {
-                stats.humanWins++;
+                stats.humanWins = (stats.humanWins || 0) + 1;
             } else if (result === 'draw') {
-                stats.draws++;
+                stats.draws = (stats.draws || 0) + 1;
             }
-            stats.totalGames++;
+            stats.totalGames = (stats.totalGames || 0) + 1;
             
+            // Mark this game as recorded
             recordedGames.push(this.gameId);
             localStorage.setItem('rchess_recorded_games', JSON.stringify(recordedGames));
             
             this.learner.saveDatabase();
             this.updateLearningPanel();
-            
-            console.log(`Game ${this.gameId}: ${isAIWin ? 'AI' : isHumanWin ? 'Human' : 'Draw'} win`);
         }
 
         // ===== FIXED: Use player-type stats directly =====
@@ -962,7 +964,8 @@
             document.getElementById('humanWins').textContent = humanWins;
             document.getElementById('draws').textContent = draws;
             document.getElementById('positionsLearned').textContent = this.learner.db.positions.length;
-            
+
+                        
             const hash = this.learner.hashPosition(this.chess.board());
             const pos = this.learner.db.positions.find(p => p.hash === hash);
             
