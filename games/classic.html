@@ -6,6 +6,18 @@
     <title>Rchess · Classic with AI</title>
     <!-- link rel="stylesheet" href="../lib/rchess-style.css" -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
+    <!-- Auto-load PGN data -->
+    <script>
+    // This will load after the main game loads
+    window.addEventListener('load', function() {
+        // Wait 2 seconds for game to initialize
+        setTimeout(() => {
+            if (typeof game !== 'undefined' && game) {
+                importPGNFromRepo();
+            }
+        }, 2000);
+    });
+    </script>
     <style>
         /* ===== RESET & BASE ===== */
         * {
@@ -1333,6 +1345,128 @@
             }, 100);
         }
     }    
+
+    // ===== IMPROVED PGN PARSER =====
+    function parsePGN(pgn) {
+        const games = [];
+        const gameLines = pgn.split('\n\n');
+        
+        for (let gameStr of gameLines) {
+            if (gameStr.trim() === '') continue;
+            
+            // Extract result
+            let result = 'draw';
+            if (gameStr.includes('1-0')) result = 'white';
+            else if (gameStr.includes('0-1')) result = 'black';
+            
+            // Extract moves
+            const moves = [];
+            const lines = gameStr.split('\n');
+            let moveText = '';
+            
+            for (let line of lines) {
+                if (!line.trim().startsWith('[')) {
+                    moveText += line + ' ';
+                }
+            }
+            
+            // Parse move numbers (e.g., "1. e4 e5 2. Nf3 Nc6")
+            const movePattern = /\d+\.\s*([^\d]+?)(?=\s*\d+\.|$)/g;
+            let match;
+            
+            while ((match = movePattern.exec(moveText)) !== null) {
+                const movePair = match[1].trim();
+                const parts = movePair.split(/\s+/);
+                
+                for (let part of parts) {
+                    if (part && !part.match(/^[0-9]+\./)) {
+                        // Clean the move notation
+                        const cleanMove = part.replace(/[+#?]/g, '').trim();
+                        if (cleanMove) {
+                            moves.push(cleanMove);
+                        }
+                    }
+                }
+            }
+            
+            if (moves.length > 0) {
+                games.push({ moves, result });
+            }
+        }
+        
+        return games;
+    }
+    
+    function processPGNGames(games) {
+        if (!game) return;
+        
+        let processed = 0;
+        let tempChess = new Chess();
+        const startTime = Date.now();
+        
+        // Show progress
+        showToast(`📊 Processing ${games.length} games...`, 'warning');
+        
+        let processedGames = 0;
+        for (let gameData of games) {
+            tempChess = new Chess();
+            let moveCount = 0;
+            
+            for (let moveSan of gameData.moves) {
+                try {
+                    const move = tempChess.move(moveSan);
+                    if (move) {
+                        moveCount++;
+                        const hash = game.learner.hashPosition(tempChess.board());
+                        const side = moveCount % 2 === 1 ? 'white' : 'black';
+                        
+                        // Store in database
+                        let pos = game.learner.db.positions.find(p => p.hash === hash);
+                        if (!pos) {
+                            pos = {
+                                hash: hash,
+                                moves: {},
+                                games_played: 0,
+                                wins: 0,
+                                patterns: []
+                            };
+                            game.learner.db.positions.push(pos);
+                        }
+                        
+                        if (!pos.moves[moveSan]) {
+                            pos.moves[moveSan] = { played: 0, wins: 0 };
+                        }
+                        pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
+                        pos.games_played = (pos.games_played || 0) + 1;
+                        
+                        if (gameData.result === side) {
+                            pos.wins = (pos.wins || 0) + 1;
+                            pos.moves[moveSan].wins = (pos.moves[moveSan].wins || 0) + 1;
+                        }
+                        
+                        processed++;
+                    }
+                } catch (e) {
+                    // Skip invalid moves
+                    continue;
+                }
+            }
+            
+            processedGames++;
+            
+            // Show progress every 100 games
+            if (processedGames % 100 === 0) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+                showToast(`📊 Processed ${processedGames}/${games.length} games (${processed} positions)`, 'warning');
+            }
+        }
+        
+        game.learner.saveDatabase();
+        game.updateLearningPanel();
+        
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        showToast(`✅ Imported ${processed} positions from ${games.length} games in ${elapsed}s!`, 'success');
+    }
     </script>
 </body>
 </html>
