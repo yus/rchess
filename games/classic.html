@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rchess · Classic with AI</title>
-    <link rel="stylesheet" href="../lib/rchess-style.css">
-    <!-- Add chess.js library -->
+    <!-- link rel="stylesheet" href="../lib/rchess-style.css" -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
         body {
@@ -66,6 +65,9 @@
             background: rgba(0, 200, 0, 0.5);
             border-radius: 50%;
         }
+        .square.last-move {
+            background: rgba(255, 255, 0, 0.3) !important;
+        }
         .sidebar {
             background: #3b5e3b;
             border-radius: 18px;
@@ -116,9 +118,16 @@
             cursor: pointer;
             font-weight: bold;
             transition: 0.2s;
+            background: #2d4d2d;
+            color: white;
         }
         .mode-btn.active {
             background: #f5c542;
+            color: #1e4d1e;
+        }
+        .mode-btn:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
         }
         button {
             padding: 10px 20px;
@@ -173,6 +182,55 @@
             margin: 3px;
             font-size: 12px;
         }
+        /* Promotion Dialog */
+        .promotion-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .promotion-dialog.active {
+            display: flex;
+        }
+        .promotion-options {
+            background: #2d5a2d;
+            padding: 30px;
+            border-radius: 20px;
+            border: 3px solid #ebc28b;
+            display: flex;
+            gap: 20px;
+        }
+        .promotion-btn {
+            font-size: 60px;
+            width: 80px;
+            height: 80px;
+            background: #eed9b2;
+            border: 3px solid #4a3c31;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .promotion-btn:hover {
+            transform: scale(1.1);
+            border-color: #f5c542;
+        }
+        .mode-status {
+            font-size: 14px;
+            padding: 5px 10px;
+            background: #2d4d2d;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -186,10 +244,12 @@
                 <h2>♟️ Rchess Classic</h2>
                 
                 <div class="mode-selector">
-                    <button class="mode-btn active" onclick="setMode('human')">👤 Human</button>
-                    <button class="mode-btn" onclick="setMode('ai')">🤖 AI</button>
-                    <button class="mode-btn" onclick="setMode('learn')">📚 Learn</button>
+                    <button class="mode-btn active" data-mode="human" onclick="setMode('human')">👤 Human</button>
+                    <button class="mode-btn" data-mode="ai" onclick="setMode('ai')">🤖 AI</button>
+                    <button class="mode-btn" data-mode="learn" onclick="setMode('learn')">📚 Learn</button>
                 </div>
+                
+                <div class="mode-status" id="modeStatus">Mode: Human</div>
                 
                 <div class="turn-indicator" id="turnDisplay">⚪ Your turn</div>
                 
@@ -228,16 +288,27 @@
         </div>
     </div>
 
+    <!-- Promotion Dialog -->
+    <div class="promotion-dialog" id="promotionDialog">
+        <div class="promotion-options">
+            <button class="promotion-btn" data-piece="q">♛</button>
+            <button class="promotion-btn" data-piece="r">♜</button>
+            <button class="promotion-btn" data-piece="b">♝</button>
+            <button class="promotion-btn" data-piece="n">♞</button>
+        </div>
+    </div>
+
     <script>
     class RchessGame {
         constructor() {
-            // Use chess.js for game logic
             this.chess = new Chess();
             this.humanColor = 'white';
             this.mode = 'human';
             this.selectedSquare = null;
             this.moveHistory = [];
             this.learner = new RchessLearner();
+            this.pendingPromotion = null;
+            this.gameOver = false;
             this.updateDisplay();
         }
 
@@ -246,18 +317,24 @@
             const moves = this.chess.moves({ square: square, verbose: true });
             return moves.map(m => ({
                 from: { row: 8 - parseInt(m.from[1]), col: m.from.charCodeAt(0) - 97 },
-                to: { row: 8 - parseInt(m.to[1]), col: m.to.charCodeAt(0) - 97 }
+                to: { row: 8 - parseInt(m.to[1]), col: m.to.charCodeAt(0) - 97 },
+                promotion: m.promotion
             }));
         }
 
-        makeMove(from, to) {
+        makeMove(from, to, promotion = 'q') {
             const fromSquare = String.fromCharCode(97 + from.col) + (8 - from.row);
             const toSquare = String.fromCharCode(97 + to.col) + (8 - to.row);
             
             try {
-                const move = this.chess.move({ from: fromSquare, to: toSquare, promotion: 'q' });
+                const move = this.chess.move({ 
+                    from: fromSquare, 
+                    to: toSquare, 
+                    promotion: promotion 
+                });
                 if (move) {
                     this.moveHistory.push(move.san);
+                    this.selectedSquare = null;
                     this.updateDisplay();
                     return true;
                 }
@@ -268,18 +345,15 @@
         }
 
         aiMove() {
-            if (this.chess.game_over()) return;
+            if (this.chess.game_over() || this.gameOver) return;
             
-            // Get all valid moves
             const moves = this.chess.moves({ verbose: true });
             if (moves.length === 0) return;
             
-            // Try to use learned moves first
             let move = null;
             const suggestions = this.getSuggestions();
             
             if (suggestions.length > 0 && Math.random() < 0.7) {
-                // Find a valid learned move
                 for (let suggestion of suggestions) {
                     const found = moves.find(m => m.san === suggestion.move);
                     if (found) {
@@ -289,12 +363,10 @@
                 }
             }
             
-            // Fallback to random move
             if (!move) {
                 move = moves[Math.floor(Math.random() * moves.length)];
             }
             
-            // Execute the move
             const result = this.chess.move(move);
             if (result) {
                 this.moveHistory.push(result.san);
@@ -323,6 +395,7 @@
             boardEl.innerHTML = '';
             
             const board = this.chess.board();
+            const lastMove = this.moveHistory.length > 0 ? this.chess.history({ verbose: true }).pop() : null;
             
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
@@ -330,6 +403,17 @@
                     square.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
                     square.dataset.row = r;
                     square.dataset.col = c;
+                    
+                    // Highlight last move
+                    if (lastMove) {
+                        const fromRow = 8 - parseInt(lastMove.from[1]);
+                        const fromCol = lastMove.from.charCodeAt(0) - 97;
+                        const toRow = 8 - parseInt(lastMove.to[1]);
+                        const toCol = lastMove.to.charCodeAt(0) - 97;
+                        if ((r === fromRow && c === fromCol) || (r === toRow && c === toCol)) {
+                            square.classList.add('last-move');
+                        }
+                    }
                     
                     const piece = board[r][c];
                     if (piece) {
@@ -344,6 +428,15 @@
                         square.classList.add('selected');
                     }
                     
+                    // Show valid moves
+                    if (this.selectedSquare) {
+                        const validMoves = this.getValidMoves(this.selectedSquare.row, this.selectedSquare.col);
+                        const isValidTarget = validMoves.some(m => m.to.row === r && m.to.col === c);
+                        if (isValidTarget) {
+                            square.classList.add('valid-move');
+                        }
+                    }
+                    
                     square.addEventListener('click', () => this.handleClick(r, c));
                     boardEl.appendChild(square);
                 }
@@ -353,20 +446,32 @@
             const turnText = this.chess.turn() === 'w' ? '⚪ White\'s turn' : '⚫ Black\'s turn';
             document.getElementById('turnDisplay').textContent = turnText;
             
+            // Update mode status
+            const modeNames = { human: '👤 Human', ai: '🤖 AI', learn: '📚 Learn' };
+            document.getElementById('modeStatus').textContent = `Mode: ${modeNames[this.mode]}`;
+            
             // Update learning panel
             this.updateLearningPanel();
             
             // Update move history
             const movesList = document.getElementById('movesList');
-            movesList.innerHTML = this.moveHistory.map((m, i) => 
+            const history = this.chess.history();
+            movesList.innerHTML = history.map((m, i) => 
                 `<span>${i+1}. ${m}</span>`
             ).join('');
             
             // Check game over
-            if (this.chess.game_over()) {
+            if (this.chess.game_over() && !this.gameOver) {
+                this.gameOver = true;
                 let result = 'Draw';
                 if (this.chess.in_checkmate()) {
                     result = this.chess.turn() === 'w' ? 'Black wins!' : 'White wins!';
+                } else if (this.chess.in_stalemate()) {
+                    result = 'Stalemate - Draw';
+                } else if (this.chess.in_threefold_repetition()) {
+                    result = 'Draw by repetition';
+                } else if (this.chess.insufficient_material()) {
+                    result = 'Draw - Insufficient material';
                 }
                 document.getElementById('turnDisplay').textContent = `Game Over - ${result}`;
             }
@@ -390,13 +495,12 @@
             
             document.getElementById('moveSuggestions').innerHTML = suggestionsHtml;
             
-            // Simple pattern detection
             const patterns = [];
-            const board = this.chess.board();
-            // Check for common patterns
             if (this.chess.in_check()) patterns.push('⚡ Check!');
             if (this.chess.in_checkmate()) patterns.push('♚ Checkmate!');
             if (this.chess.insufficient_material()) patterns.push('⚖️ Insufficient material');
+            if (this.chess.in_stalemate()) patterns.push('⏸️ Stalemate');
+            if (this.chess.in_threefold_repetition()) patterns.push('🔄 Repetition');
             
             document.getElementById('patternList').innerHTML = patterns.length ?
                 patterns.map(p => `<span class="pattern-tag">${p}</span>`).join('') :
@@ -404,27 +508,45 @@
         }
 
         handleClick(row, col) {
-            if (this.chess.game_over()) return;
+            if (this.chess.game_over() || this.gameOver) return;
             
-            // If AI mode and it's not human's turn, ignore clicks
-            if (this.mode === 'ai' && this.chess.turn() !== (this.humanColor === 'white' ? 'w' : 'b')) {
+            // Check if it's human's turn
+            const isHumanTurn = this.chess.turn() === (this.humanColor === 'white' ? 'w' : 'b');
+            
+            // In AI mode, only allow human moves when it's their turn
+            if (this.mode === 'ai' && !isHumanTurn) {
                 return;
+            }
+            
+            // In learn mode, allow moves for both sides
+            if (this.mode === 'learn') {
+                // Allow moves for both sides
             }
             
             const square = String.fromCharCode(97 + col) + (8 - row);
             
             if (this.selectedSquare) {
-                // Try to make a move
                 const fromSquare = String.fromCharCode(97 + this.selectedSquare.col) + (8 - this.selectedSquare.row);
                 const toSquare = square;
                 
-                const move = this.chess.move({ from: fromSquare, to: toSquare, promotion: 'q' });
+                // Check if this is a promotion move
+                const piece = this.chess.get(fromSquare);
+                const isPromotion = piece && piece.type === 'p' && (row === 0 || row === 7);
+                
+                if (isPromotion) {
+                    // Show promotion dialog
+                    this.pendingPromotion = { from: this.selectedSquare, to: { row, col } };
+                    document.getElementById('promotionDialog').classList.add('active');
+                    return;
+                }
+                
+                const move = this.chess.move({ from: fromSquare, to: toSquare });
                 if (move) {
                     this.moveHistory.push(move.san);
                     this.selectedSquare = null;
                     this.updateDisplay();
                     
-                    // If AI mode and game not over, trigger AI move
+                    // In AI mode, trigger AI move
                     if (this.mode === 'ai' && !this.chess.game_over()) {
                         setTimeout(() => {
                             this.aiMove();
@@ -432,22 +554,51 @@
                         }, 300);
                     }
                 } else {
-                    // Invalid move - deselect
                     this.selectedSquare = null;
                     this.updateDisplay();
                 }
             } else {
-                // Select a piece
                 const piece = this.chess.get(square);
-                if (piece && piece.color === (this.chess.turn() === 'w' ? 'w' : 'b')) {
-                    this.selectedSquare = { row, col };
-                    this.updateDisplay();
+                if (piece) {
+                    const isCorrectColor = piece.color === (this.chess.turn() === 'w' ? 'w' : 'b');
+                    if (isCorrectColor || this.mode === 'learn') {
+                        this.selectedSquare = { row, col };
+                        this.updateDisplay();
+                    }
+                }
+            }
+        }
+
+        handlePromotion(piece) {
+            if (!this.pendingPromotion) return;
+            
+            const { from, to } = this.pendingPromotion;
+            const fromSquare = String.fromCharCode(97 + from.col) + (8 - from.row);
+            const toSquare = String.fromCharCode(97 + to.col) + (8 - to.row);
+            
+            const move = this.chess.move({ 
+                from: fromSquare, 
+                to: toSquare, 
+                promotion: piece 
+            });
+            
+            if (move) {
+                this.moveHistory.push(move.san);
+                this.selectedSquare = null;
+                this.pendingPromotion = null;
+                document.getElementById('promotionDialog').classList.remove('active');
+                this.updateDisplay();
+                
+                if (this.mode === 'ai' && !this.chess.game_over()) {
+                    setTimeout(() => {
+                        this.aiMove();
+                        this.updateDisplay();
+                    }, 300);
                 }
             }
         }
 
         recordGame(winner) {
-            // Simple implementation - store the game result
             const gameData = {
                 moves: this.moveHistory,
                 winner: winner || 'draw',
@@ -469,7 +620,6 @@
         }
 
         hashPosition(board) {
-            // Simple FEN-like hash for position
             let fen = '';
             for (let r = 0; r < 8; r++) {
                 let empty = 0;
@@ -498,18 +648,39 @@
     window.onload = () => {
         game = new RchessGame();
         game.updateDisplay();
+        
+        // Promotion dialog handlers
+        document.querySelectorAll('.promotion-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                game.handlePromotion(btn.dataset.piece);
+            });
+        });
+        
+        // Close promotion dialog on outside click
+        document.getElementById('promotionDialog').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('promotionDialog').classList.remove('active');
+                game.pendingPromotion = null;
+                game.selectedSquare = null;
+                game.updateDisplay();
+            }
+        });
     };
 
     function setMode(mode) {
+        if (!game) return;
         game.mode = mode;
-        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        game.selectedSquare = null;
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
         game.updateDisplay();
     }
 
     function resetGame() {
         game = new RchessGame();
         game.updateDisplay();
+        document.getElementById('promotionDialog').classList.remove('active');
     }
 
     function exportGame() {
