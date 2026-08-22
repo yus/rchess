@@ -902,30 +902,29 @@
 
         // ===== FIXED: Record position with debug =====
         recordPosition(moveSan) {
-                const hash = this.learner.hashPosition(this.chess.board());
-                let pos = this.learner.db.positions.find(p => p.hash === hash);
-                
-                if (!pos) {
-                    pos = {
-                        hash: hash,
-                        moves: {},
-                        games_played: 0,
-                        wins: 0,
-                        patterns: []
-                    };
-                    this.learner.db.positions.push(pos);
-                    debugLog(`New position: ${hash} (${this.learner.db.positions.length} total)`, 'success');
-                }
-                
-                if (moveSan) {
-                    if (!pos.moves[moveSan]) {
-                        pos.moves[moveSan] = { played: 0, wins: 0 };
-                    }
-                    pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
-                }
-                
-                this.learner.saveDatabase();
+            const hash = this.learner.hashPosition(this.chess.board());
+            let pos = this.learner.db.positions.find(p => p.hash === hash);
+            
+            if (!pos) {
+                pos = {
+                    hash: hash,
+                    moves: {},
+                    games_played: 0,
+                    wins: 0,
+                    patterns: []
+                };
+                this.learner.db.positions.push(pos);
+                debugLog(`New position: ${hash} (${this.learner.db.positions.length} total)`, 'success');
             }
+            
+            if (moveSan) {
+                if (!pos.moves[moveSan]) {
+                    pos.moves[moveSan] = { played: 0, wins: 0 };
+                }
+                pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
+            }
+            
+            this.learner.saveDatabase();
         }
 
         aiMove() {
