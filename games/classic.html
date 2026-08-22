@@ -4,81 +4,476 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rchess · Classic with AI</title>
-    <!-- link rel="stylesheet" href="../lib/rchess-style.css" -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
-        /* ... (all CSS remains exactly the same as your current file) ... */
         /* ===== RESET & BASE ===== */
-        * { box-sizing: border-box; }
-        body { background: #1e4d1e; font-family: 'Segoe UI', system-ui; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .game-container { background: #2d5a2d; padding: 25px; border-radius: 28px; border: 2px solid #ebc28b; max-width: 1200px; width: 100%; }
-        .game-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #1e4d1e;
+            font-family: 'Segoe UI', system-ui;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            background: #2d5a2d;
+            padding: 25px;
+            border-radius: 28px;
+            border: 2px solid #ebc28b;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+        
         /* ===== FIXED BOARD - FIREFOX COMPATIBLE ===== */
-        .board-container { display: flex; justify-content: center; align-items: flex-start; width: 100%; }
-        .board-wrapper { position: relative; width: 100%; max-width: 560px; }
-        .board-wrapper::before { content: ''; display: block; padding-bottom: 100%; }
-        .board { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 5px solid #4a3c31; border-radius: 8px; overflow: hidden; background: #b58863; }
-        .square { display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; font-size: clamp(20px, 4vw, 42px); user-select: none; -webkit-user-select: none; min-width: 0; min-height: 0; aspect-ratio: 1 / 1; }
+        .board-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+        }
+        
+        .board-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+        }
+        
+        .board-wrapper::before {
+            content: '';
+            display: block;
+            padding-bottom: 100%;
+        }
+        
+        .board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 5px solid #4a3c31;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #b58863;
+        }
+        
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            font-size: clamp(20px, 4vw, 42px);
+            user-select: none;
+            -webkit-user-select: none;
+            min-width: 0;
+            min-height: 0;
+            aspect-ratio: 1 / 1;
+        }
+        
         .square.light { background: #eed9b2; }
         .square.dark { background: #b58863; }
-        .square.selected { outline: 4px solid #ffb703; outline-offset: -3px; filter: brightness(1.1); z-index: 1; }
-        .square.valid-move::after { content: ''; position: absolute; width: 25%; height: 25%; background: rgba(0, 200, 0, 0.5); border-radius: 50%; pointer-events: none; }
-        .square.last-move { background: rgba(255, 255, 0, 0.3) !important; }
-        @-moz-document url-prefix() { .square { display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; } .square::before { content: ''; display: block; padding-bottom: 100%; width: 0; height: 0; visibility: hidden; flex-shrink: 0; } .square .piece { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); } }
+        
+        .square.selected {
+            outline: 4px solid #ffb703;
+            outline-offset: -3px;
+            filter: brightness(1.1);
+            z-index: 1;
+        }
+        
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 25%;
+            height: 25%;
+            background: rgba(0, 200, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .square.last-move {
+            background: rgba(255, 255, 0, 0.3) !important;
+        }
+        
+        @-moz-document url-prefix() {
+            .square {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 0;
+                min-width: 0;
+            }
+            .square::before {
+                content: '';
+                display: block;
+                padding-bottom: 100%;
+                width: 0;
+                height: 0;
+                visibility: hidden;
+                flex-shrink: 0;
+            }
+            .square .piece {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+        }
         /* ===== END BOARD FIX ===== */
-        .sidebar { background: #3b5e3b; border-radius: 18px; padding: 20px; color: white; border: 2px solid #6f8c5d; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
-        .learning-panel { margin-top: 20px; padding: 15px; background: #2d4d2d; border-radius: 15px; }
-        .suggestion { background: #4a3c31; padding: 10px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #f5c542; cursor: pointer; transition: 0.2s; }
-        .suggestion:hover { transform: scale(1.02); border-left-color: #ff6b6b; }
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
-        .stat { text-align: center; background: #3b5e3b; padding: 10px; border-radius: 10px; }
-        .stat .value { font-size: 24px; font-weight: bold; color: #ffde9e; }
-        .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; }
-        .mode-btn { flex: 1; padding: 10px; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; background: #2d4d2d; color: white; }
-        .mode-btn.active { background: #f5c542; color: #1e4d1e; }
-        .mode-btn:hover { transform: scale(1.02); opacity: 0.9; }
-        button { padding: 10px 20px; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; background: #f5c542; color: #1e4d1e; transition: 0.2s; }
-        button:hover { transform: scale(1.02); opacity: 0.9; }
-        button.secondary { background: #6f8c5d; color: white; }
-        button.danger { background: #c0392b; color: white; }
-        .history-box { margin-top: 20px; max-height: 200px; overflow-y: auto; flex-shrink: 0; }
-        .history-box h3 { margin-bottom: 10px; }
-        #movesList { display: flex; flex-wrap: wrap; gap: 5px; }
-        #movesList span { background: #2d4d2d; padding: 3px 8px; border-radius: 4px; font-size: 14px; }
-        .turn-indicator { font-size: 18px; padding: 10px; background: #2d4d2d; border-radius: 10px; text-align: center; margin-bottom: 15px; }
-        .pattern-tag { display: inline-block; background: #4a3c31; padding: 3px 10px; border-radius: 15px; margin: 3px; font-size: 12px; }
-        .mode-status { font-size: 14px; padding: 5px 10px; background: #2d4d2d; border-radius: 10px; display: inline-block; margin-bottom: 10px; }
-        .color-indicator { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 14px; margin-left: 5px; }
-        .color-white { background: #ffffff; color: #1e4d1e; }
-        .color-black { background: #1a1a1a; color: white; }
-        .ai-stats { background: #2d4d2d; padding: 10px; border-radius: 10px; margin-top: 10px; }
-        .ai-stats .stat-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #3b5e3b; }
-        .ai-stats .stat-item:last-child { border-bottom: none; }
-        .stat-value { font-weight: bold; color: #ffde9e; }
-        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
-        .btn-group button { flex: 1; }
-        .thinking { animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .promotion-dialog { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .promotion-dialog.active { display: flex; }
-        .promotion-options { background: #2d5a2d; padding: 30px; border-radius: 20px; border: 3px solid #ebc28b; display: flex; gap: 20px; }
-        .promotion-btn { font-size: 60px; width: 80px; height: 80px; background: #eed9b2; border: 3px solid #4a3c31; border-radius: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-        .promotion-btn:hover { transform: scale(1.1); border-color: #f5c542; }
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d5a2d; color: white; padding: 15px 30px; border-radius: 12px; border: 2px solid #ebc28b; display: none; z-index: 2000; max-width: 90%; text-align: center; }
-        .toast.show { display: block; animation: slideUp 0.3s ease; }
-        .toast.success { border-color: #4CAF50; }
-        .toast.warning { border-color: #ff9800; }
-        .toast.error { border-color: #f44336; }
-        @keyframes slideUp { from { transform: translateX(-50%) translateY(100px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
-        .file-indicator { background: #2d4d2d; padding: 8px 12px; border-radius: 8px; margin-top: 10px; font-size: 12px; border-left: 3px solid #ff9800; }
-        .file-indicator.loaded { border-left-color: #4CAF50; }
-        .file-indicator.missing { border-left-color: #ff9800; }
-        @media (max-width: 900px) { .game-layout { grid-template-columns: 1fr; gap: 15px; } .board-wrapper { max-width: 100%; } .sidebar { max-height: none; } }
-        @media (max-width: 600px) { body { padding: 10px; } .game-container { padding: 15px; } .square { font-size: clamp(16px, 5vw, 28px); } .promotion-btn { font-size: 40px; width: 60px; height: 60px; } .mode-selector { flex-wrap: wrap; } .mode-btn { min-width: 60px; font-size: 12px; padding: 8px; } }
+        
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            background: #3b5e3b;
+            border-radius: 18px;
+            padding: 20px;
+            color: white;
+            border: 2px solid #6f8c5d;
+            max-height: 90vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .learning-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2d4d2d;
+            border-radius: 15px;
+        }
+        
+        .suggestion {
+            background: #4a3c31;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #f5c542;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .suggestion:hover {
+            transform: scale(1.02);
+            border-left-color: #ff6b6b;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat {
+            text-align: center;
+            background: #3b5e3b;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            background: #2d4d2d;
+            color: white;
+        }
+        .mode-btn.active {
+            background: #f5c542;
+            color: #1e4d1e;
+        }
+        .mode-btn:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #f5c542;
+            color: #1e4d1e;
+            transition: 0.2s;
+        }
+        button:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        button.secondary {
+            background: #6f8c5d;
+            color: white;
+        }
+        button.danger {
+            background: #c0392b;
+            color: white;
+        }
+        
+        .history-box {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .history-box h3 {
+            margin-bottom: 10px;
+        }
+        #movesList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        #movesList span {
+            background: #2d4d2d;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .turn-indicator {
+            font-size: 18px;
+            padding: 10px;
+            background: #2d4d2d;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .pattern-tag {
+            display: inline-block;
+            background: #4a3c31;
+            padding: 3px 10px;
+            border-radius: 15px;
+            margin: 3px;
+            font-size: 12px;
+        }
+        
+        .mode-status {
+            font-size: 14px;
+            padding: 5px 10px;
+            background: #2d4d2d;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .color-indicator {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        .color-white {
+            background: #ffffff;
+            color: #1e4d1e;
+        }
+        .color-black {
+            background: #1a1a1a;
+            color: white;
+        }
+        
+        .ai-stats {
+            background: #2d4d2d;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        .ai-stats .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #3b5e3b;
+        }
+        .ai-stats .stat-item:last-child {
+            border-bottom: none;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-group button {
+            flex: 1;
+        }
+        
+        .thinking {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        /* ===== PROMOTION DIALOG ===== */
+        .promotion-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .promotion-dialog.active {
+            display: flex;
+        }
+        .promotion-options {
+            background: #2d5a2d;
+            padding: 30px;
+            border-radius: 20px;
+            border: 3px solid #ebc28b;
+            display: flex;
+            gap: 20px;
+        }
+        .promotion-btn {
+            font-size: 60px;
+            width: 80px;
+            height: 80px;
+            background: #eed9b2;
+            border: 3px solid #4a3c31;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .promotion-btn:hover {
+            transform: scale(1.1);
+            border-color: #f5c542;
+        }
+        
+        /* ===== TOAST ===== */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d5a2d;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            border: 2px solid #ebc28b;
+            display: none;
+            z-index: 2000;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        .toast.success {
+            border-color: #4CAF50;
+        }
+        .toast.warning {
+            border-color: #ff9800;
+        }
+        .toast.error {
+            border-color: #f44336;
+        }
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        
+        .file-indicator {
+            background: #2d4d2d;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            border-left: 3px solid #ff9800;
+        }
+        .file-indicator.loaded {
+            border-left-color: #4CAF50;
+        }
+        .file-indicator.missing {
+            border-left-color: #ff9800;
+        }
+        .file-indicator.loading {
+            border-left-color: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 900px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            .board-wrapper {
+                max-width: 100%;
+            }
+            .sidebar {
+                max-height: none;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .game-container {
+                padding: 15px;
+            }
+            .square {
+                font-size: clamp(16px, 5vw, 28px);
+            }
+            .promotion-btn {
+                font-size: 40px;
+                width: 60px;
+                height: 60px;
+            }
+            .mode-selector {
+                flex-wrap: wrap;
+            }
+            .mode-btn {
+                min-width: 60px;
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- ... (HTML BODY remains exactly the same as your current file) ... -->
     <div class="game-container">
         <div class="game-layout">
             <div class="board-container">
@@ -178,7 +573,7 @@
     <div class="toast" id="toast"></div>
 
     <script>
-    // ===== REWRITTEN JAVASCRIPT WITH FIXED STATS =====
+    // ===== REWRITTEN JAVASCRIPT WITH FIXED STATS & PGN INDICATOR =====
     class RchessGame {
         constructor() {
             this.chess = new Chess();
@@ -192,10 +587,17 @@
             this.aiColor = this.playerColor === 'white' ? 'black' : 'white';
             this.gameResult = null;
             this.isAIThinking = false;
-            this.gameRecorded = false; // Track if game result was already recorded
-            this.gameId = null; // Unique ID for this game
+            this.gameRecorded = false;
+            this.gameId = null;
             
-            this.loadAutoSave();
+            // Load auto-save FIRST before generating a new game ID
+            const hasAutoSave = this.loadAutoSave();
+            
+            // Only generate a new ID if there's no auto-save
+            if (!hasAutoSave) {
+                this.gameId = this.generateGameId();
+            }
+            
             this.updateDisplay();
             
             if (this.mode === 'ai' && this.aiColor === 'white') {
@@ -232,8 +634,6 @@
                     console.error('Failed to load auto-save:', e);
                 }
             }
-            // Start a new game with a unique ID
-            this.gameId = this.generateGameId();
             return false;
         }
 
@@ -477,15 +877,12 @@
                 this.gameResult = winner;
                 this.gameRecorded = true;
                 
-                // Record the game result
                 this.recordGameResult(winner);
                 localStorage.removeItem('rchess_autosave');
             }
         }
 
-        // ===== REWRITTEN recordGameResult - FIXED =====
         recordGameResult(result) {
-            // Only record the result if we have moves and this game hasn't been recorded yet
             if (this.moveHistory.length === 0 || !this.gameId) return;
             
             // Check if this game was already recorded
@@ -495,7 +892,6 @@
                 return;
             }
             
-            // Get all positions from the game with side information
             const tempChess = new Chess();
             const positionHistory = [];
             
@@ -503,38 +899,26 @@
                 const moveSan = this.moveHistory[i];
                 tempChess.move(moveSan);
                 const hash = this.learner.hashPosition(tempChess.board());
-                // The side that made the move
                 const side = i % 2 === 0 ? 'white' : 'black';
                 positionHistory.push({ hash, side, move: moveSan });
             }
             
-            // Determine if AI won
             const isAIWin = (result === 'white' && this.aiColor === 'white') ||
                            (result === 'black' && this.aiColor === 'black');
-            const isAILoss = (result === 'white' && this.aiColor === 'black') ||
-                            (result === 'black' && this.aiColor === 'white');
             
-            // Update each position based on result
             for (let pos of positionHistory) {
                 const dbPos = this.learner.db.positions.find(p => p.hash === pos.hash);
-                if (dbPos) {
-                    // Only count positions where the AI made the move
-                    if (pos.side === this.aiColor) {
-                        dbPos.games_played = (dbPos.games_played || 0) + 1;
-                        
-                        if (isAIWin) {
-                            dbPos.wins = (dbPos.wins || 0) + 1;
-                            // Also update the specific move's win rate
-                            if (dbPos.moves[pos.move]) {
-                                dbPos.moves[pos.move].wins = (dbPos.moves[pos.move].wins || 0) + 1;
-                            }
+                if (dbPos && pos.side === this.aiColor) {
+                    dbPos.games_played = (dbPos.games_played || 0) + 1;
+                    if (isAIWin) {
+                        dbPos.wins = (dbPos.wins || 0) + 1;
+                        if (dbPos.moves[pos.move]) {
+                            dbPos.moves[pos.move].wins = (dbPos.moves[pos.move].wins || 0) + 1;
                         }
-                        // If AI lost, we don't add wins, but games_played already incremented
                     }
                 }
             }
             
-            // Update global stats
             const stats = this.learner.db.stats;
             if (result === 'white') {
                 stats.whiteWins = (stats.whiteWins || 0) + 1;
@@ -545,15 +929,11 @@
             }
             stats.totalGames = (stats.totalGames || 0) + 1;
             
-            // Mark this game as recorded
             recordedGames.push(this.gameId);
             localStorage.setItem('rchess_recorded_games', JSON.stringify(recordedGames));
             
             this.learner.saveDatabase();
             this.updateLearningPanel();
-            
-            // Log for debugging
-            console.log(`Game ${this.gameId} recorded: ${result} win for ${isAIWin ? 'AI' : 'Human'}`);
         }
 
         updateLearningPanel() {
@@ -712,6 +1092,10 @@
         }
 
         loadExternalKnowledge() {
+            const indicator = document.getElementById('fileIndicator');
+            indicator.className = 'file-indicator loading';
+            indicator.innerHTML = '⏳ Loading AI knowledge...';
+            
             fetch('ai_knowledge.json')
                 .then(response => {
                     if (!response.ok) {
@@ -755,17 +1139,14 @@
                         
                         this.saveDatabase();
                         
-                        document.getElementById('fileIndicator').className = 'file-indicator loaded';
-                        document.getElementById('fileIndicator').innerHTML = 
-                            `✅ Loaded AI knowledge (${loadedCount} new positions)`;
-                        
+                        indicator.className = 'file-indicator loaded';
+                        indicator.innerHTML = `✅ Loaded AI knowledge (${loadedCount} new positions)`;
                         showToast(`📚 Loaded ${loadedCount} positions from ai_knowledge.json`, 'success');
                     }
                 })
                 .catch(() => {
-                    document.getElementById('fileIndicator').className = 'file-indicator missing';
-                    document.getElementById('fileIndicator').innerHTML = 
-                        '📁 No external knowledge file found. Using local data.';
+                    indicator.className = 'file-indicator missing';
+                    indicator.innerHTML = '📁 No external knowledge file found. Using local data.';
                 });
         }
 
@@ -804,15 +1185,18 @@
                 games: [] 
             };
             this.saveDatabase();
-            // Also clear recorded games list
             localStorage.setItem('rchess_recorded_games', JSON.stringify([]));
         }
     }
 
     let game;
 
-    // ===== Auto-load PGN data =====
+    // ===== PGN LOADER WITH PROGRESS INDICATOR =====
     function loadPGNData() {
+        const indicator = document.getElementById('fileIndicator');
+        indicator.className = 'file-indicator loading';
+        indicator.innerHTML = '⏳ Loading PGN data...';
+        
         fetch('games/data/chess960_2015.pgn')
             .then(response => {
                 if (!response.ok) {
@@ -828,13 +1212,88 @@
             })
             .then(pgn => {
                 console.log('PGN loaded! Size:', pgn.length, 'characters');
+                indicator.innerHTML = '⏳ Parsing PGN...';
                 const games = parsePGN(pgn);
                 processPGNGames(games);
-                showToast(`📚 Loaded ${games.length} games from PGN!`, 'success');
             })
             .catch(() => {
+                indicator.className = 'file-indicator missing';
+                indicator.innerHTML = '📁 No PGN data found. Using local knowledge.';
                 console.log('No PGN data found, using existing knowledge');
             });
+    }
+    
+    function processPGNGames(games) {
+        if (!game) return;
+        
+        const indicator = document.getElementById('fileIndicator');
+        let processed = 0;
+        let tempChess = new Chess();
+        const startTime = Date.now();
+        const totalGames = games.length;
+        
+        indicator.innerHTML = `⏳ Processing 0/${totalGames} games...`;
+        
+        let processedGames = 0;
+        for (let gameData of games) {
+            tempChess = new Chess();
+            let moveCount = 0;
+            
+            for (let moveSan of gameData.moves) {
+                try {
+                    const move = tempChess.move(moveSan);
+                    if (move) {
+                        moveCount++;
+                        const hash = game.learner.hashPosition(tempChess.board());
+                        const side = moveCount % 2 === 1 ? 'white' : 'black';
+                        
+                        let pos = game.learner.db.positions.find(p => p.hash === hash);
+                        if (!pos) {
+                            pos = {
+                                hash: hash,
+                                moves: {},
+                                games_played: 0,
+                                wins: 0,
+                                patterns: []
+                            };
+                            game.learner.db.positions.push(pos);
+                        }
+                        
+                        if (!pos.moves[moveSan]) {
+                            pos.moves[moveSan] = { played: 0, wins: 0 };
+                        }
+                        pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
+                        pos.games_played = (pos.games_played || 0) + 1;
+                        
+                        if (gameData.result === side) {
+                            pos.wins = (pos.wins || 0) + 1;
+                            pos.moves[moveSan].wins = (pos.moves[moveSan].wins || 0) + 1;
+                        }
+                        
+                        processed++;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            processedGames++;
+            
+            // Update progress every 50 games
+            if (processedGames % 50 === 0 || processedGames === totalGames) {
+                const progress = Math.round((processedGames / totalGames) * 100);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+                indicator.innerHTML = `⏳ Processing ${progress}% (${processedGames}/${totalGames} games, ${processed} positions) - ${elapsed}s`;
+            }
+        }
+        
+        game.learner.saveDatabase();
+        game.updateLearningPanel();
+        
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        indicator.className = 'file-indicator loaded';
+        indicator.innerHTML = `✅ Loaded ${processed} positions from ${totalGames} games in ${elapsed}s`;
+        showToast(`✅ Imported ${processed} positions from ${totalGames} games in ${elapsed}s!`, 'success');
     }
     
     window.onload = () => {
@@ -843,7 +1302,7 @@
 
         setTimeout(() => {
             loadPGNData();
-        }, 1000);
+        }, 1500);
         
         document.querySelectorAll('.promotion-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -861,7 +1320,6 @@
         });
     };
 
-    // ===== FIXED resetGame - preserves learner data =====
     function resetGame() {
         if (!game) return;
         
@@ -1027,73 +1485,6 @@
         }
         
         return games;
-    }
-    
-    function processPGNGames(games) {
-        if (!game) return;
-        
-        let processed = 0;
-        let tempChess = new Chess();
-        const startTime = Date.now();
-        
-        showToast(`📊 Processing ${games.length} games...`, 'warning');
-        
-        let processedGames = 0;
-        for (let gameData of games) {
-            tempChess = new Chess();
-            let moveCount = 0;
-            
-            for (let moveSan of gameData.moves) {
-                try {
-                    const move = tempChess.move(moveSan);
-                    if (move) {
-                        moveCount++;
-                        const hash = game.learner.hashPosition(tempChess.board());
-                        const side = moveCount % 2 === 1 ? 'white' : 'black';
-                        
-                        let pos = game.learner.db.positions.find(p => p.hash === hash);
-                        if (!pos) {
-                            pos = {
-                                hash: hash,
-                                moves: {},
-                                games_played: 0,
-                                wins: 0,
-                                patterns: []
-                            };
-                            game.learner.db.positions.push(pos);
-                        }
-                        
-                        if (!pos.moves[moveSan]) {
-                            pos.moves[moveSan] = { played: 0, wins: 0 };
-                        }
-                        pos.moves[moveSan].played = (pos.moves[moveSan].played || 0) + 1;
-                        pos.games_played = (pos.games_played || 0) + 1;
-                        
-                        if (gameData.result === side) {
-                            pos.wins = (pos.wins || 0) + 1;
-                            pos.moves[moveSan].wins = (pos.moves[moveSan].wins || 0) + 1;
-                        }
-                        
-                        processed++;
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
-            
-            processedGames++;
-            
-            if (processedGames % 100 === 0) {
-                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-                showToast(`📊 Processed ${processedGames}/${games.length} games (${processed} positions)`, 'warning');
-            }
-        }
-        
-        game.learner.saveDatabase();
-        game.updateLearningPanel();
-        
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        showToast(`✅ Imported ${processed} positions from ${games.length} games in ${elapsed}s!`, 'success');
     }
     </script>
 </body>
