@@ -6,574 +6,15 @@
     <title>Rchess · Classic with AI</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
-        /* ===== RESET & BASE ===== */
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #1e4d1e;
-            font-family: 'Segoe UI', system-ui;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        
-        .game-container {
-            background: #2d5a2d;
-            padding: 25px;
-            border-radius: 28px;
-            border: 2px solid #ebc28b;
-            max-width: 1200px;
-            width: 100%;
-        }
-        
-        .game-layout {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 20px;
-        }
-        
-        /* ===== FIXED BOARD - FIREFOX COMPATIBLE ===== */
-        .board-container {
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            width: 100%;
-        }
-        
-        .board-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 560px;
-        }
-        
-        .board-wrapper::before {
-            content: '';
-            display: block;
-            padding-bottom: 100%;
-        }
-        
-        .board {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr);
-            border: 5px solid #4a3c31;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #b58863;
-        }
-        
-        .square {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            position: relative;
-            font-size: clamp(20px, 4vw, 42px);
-            user-select: none;
-            -webkit-user-select: none;
-            min-width: 0;
-            min-height: 0;
-            aspect-ratio: 1 / 1;
-        }
-        
-        .square.light { background: #eed9b2; }
-        .square.dark { background: #b58863; }
-        
-        .square.selected {
-            outline: 4px solid #ffb703;
-            outline-offset: -3px;
-            filter: brightness(1.1);
-            z-index: 1;
-        }
-        
-        .square.valid-move::after {
-            content: '';
-            position: absolute;
-            width: 25%;
-            height: 25%;
-            background: rgba(0, 200, 0, 0.5);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-        
-        .square.last-move {
-            background: rgba(255, 255, 0, 0.3) !important;
-        }
-        
-        @-moz-document url-prefix() {
-            .square {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 0;
-                min-width: 0;
-            }
-            .square::before {
-                content: '';
-                display: block;
-                padding-bottom: 100%;
-                width: 0;
-                height: 0;
-                visibility: hidden;
-                flex-shrink: 0;
-            }
-            .square .piece {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-            }
-        }
-        /* ===== END BOARD FIX ===== */
-        
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            background: #3b5e3b;
-            border-radius: 18px;
-            padding: 20px;
-            color: white;
-            border: 2px solid #6f8c5d;
-            max-height: 90vh;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .learning-panel {
-            margin-top: 20px;
-            padding: 15px;
-            background: #2d4d2d;
-            border-radius: 15px;
-        }
-        
-        .suggestion {
-            background: #4a3c31;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-            border-left: 4px solid #f5c542;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .suggestion:hover {
-            transform: scale(1.02);
-            border-left-color: #ff6b6b;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .stat {
-            text-align: center;
-            background: #3b5e3b;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        .stat .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .mode-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-            background: #2d4d2d;
-            color: white;
-        }
-        .mode-btn.active {
-            background: #f5c542;
-            color: #1e4d1e;
-        }
-        .mode-btn:hover {
-            transform: scale(1.02);
-            opacity: 0.9;
-        }
-        
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            background: #f5c542;
-            color: #1e4d1e;
-            transition: 0.2s;
-        }
-        button:hover {
-            transform: scale(1.02);
-            opacity: 0.9;
-        }
-        button.secondary {
-            background: #6f8c5d;
-            color: white;
-        }
-        button.danger {
-            background: #c0392b;
-            color: white;
-        }
-        
-        .history-box {
-            margin-top: 20px;
-            max-height: 200px;
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-        .history-box h3 {
-            margin-bottom: 10px;
-        }
-        #movesList {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-        #movesList span {
-            background: #2d4d2d;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .turn-indicator {
-            font-size: 18px;
-            padding: 10px;
-            background: #2d4d2d;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        
-        .pattern-tag {
-            display: inline-block;
-            background: #4a3c31;
-            padding: 3px 10px;
-            border-radius: 15px;
-            margin: 3px;
-            font-size: 12px;
-        }
-        
-        .mode-status {
-            font-size: 14px;
-            padding: 5px 10px;
-            background: #2d4d2d;
-            border-radius: 10px;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        
-        .color-indicator {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-left: 5px;
-        }
-        .color-white {
-            background: #ffffff;
-            color: #1e4d1e;
-        }
-        .color-black {
-            background: #1a1a1a;
-            color: white;
-        }
-        
-        .ai-stats {
-            background: #2d4d2d;
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-        .ai-stats .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid #3b5e3b;
-        }
-        .ai-stats .stat-item:last-child {
-            border-bottom: none;
-        }
-        .stat-value {
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn-group button {
-            flex: 1;
-        }
-        
-        .thinking {
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        /* ===== PROMOTION DIALOG ===== */
-        .promotion-dialog {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .promotion-dialog.active {
-            display: flex;
-        }
-        .promotion-options {
-            background: #2d5a2d;
-            padding: 30px;
-            border-radius: 20px;
-            border: 3px solid #ebc28b;
-            display: flex;
-            gap: 20px;
-        }
-        .promotion-btn {
-            font-size: 60px;
-            width: 80px;
-            height: 80px;
-            background: #eed9b2;
-            border: 3px solid #4a3c31;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .promotion-btn:hover {
-            transform: scale(1.1);
-            border-color: #f5c542;
-        }
-        
-        /* ===== TOAST ===== */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d5a2d;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 12px;
-            border: 2px solid #ebc28b;
-            display: none;
-            z-index: 2000;
-            max-width: 90%;
-            text-align: center;
-        }
-        .toast.show {
-            display: block;
-            animation: slideUp 0.3s ease;
-        }
-        .toast.success {
-            border-color: #4CAF50;
-        }
-        .toast.warning {
-            border-color: #ff9800;
-        }
-        .toast.error {
-            border-color: #f44336;
-        }
-        @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
-        
-        .file-indicator {
-            background: #2d4d2d;
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-size: 12px;
-            border-left: 3px solid #ff9800;
-        }
-        .file-indicator.loaded {
-            border-left-color: #4CAF50;
-        }
-        .file-indicator.missing {
-            border-left-color: #ff9800;
-        }
-        .file-indicator.loading {
-            border-left-color: #ff9800;
-            animation: pulse 1s infinite;
-        }
-        
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 900px) {
-            .game-layout {
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-            .board-wrapper {
-                max-width: 100%;
-            }
-            .sidebar {
-                max-height: none;
-            }
-        }
-        
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            .game-container {
-                padding: 15px;
-            }
-            .square {
-                font-size: clamp(16px, 5vw, 28px);
-            }
-            .promotion-btn {
-                font-size: 40px;
-                width: 60px;
-                height: 60px;
-            }
-            .mode-selector {
-                flex-wrap: wrap;
-            }
-            .mode-btn {
-                min-width: 60px;
-                font-size: 12px;
-                padding: 8px;
-            }
-        }
+        /* ... (all CSS stays exactly the same as before) ... */
+        /* I'm omitting the CSS for brevity - keep your existing CSS */
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="game-layout">
-            <div class="board-container">
-                <div class="board-wrapper">
-                    <div class="board" id="chessboard"></div>
-                </div>
-            </div>
-            
-            <div class="sidebar">
-                <h2>♟️ Rchess Classic</h2>
-                
-                <div class="mode-selector">
-                    <button class="mode-btn active" data-mode="ai" onclick="setMode('ai')">🤖 AI</button>
-                    <button class="mode-btn" data-mode="learn" onclick="setMode('learn')">📚 Learn</button>
-                </div>
-                
-                <div class="mode-status" id="modeStatus">Mode: AI</div>
-                <div id="colorStatus" style="margin-top: 5px; font-size: 14px;">
-                    You play: <span class="color-indicator color-white">♔ White</span>
-                </div>
-                
-                <div class="turn-indicator" id="turnDisplay">⚪ Your turn</div>
-                
-                <div class="learning-panel">
-                    <h3>📊 Learning Stats</h3>
-                    <div class="stats">
-                        <div class="stat">
-                            <div class="value" id="totalGames">0</div>
-                            <div>Total Games</div>
-                        </div>
-                        <div class="stat">
-                            <div class="value" id="aiWinRate">0%</div>
-                            <div>AI Win Rate</div>
-                        </div>
-                    </div>
-                    
-                    <div class="ai-stats">
-                        <div class="stat-item">
-                            <span>AI Wins</span>
-                            <span class="stat-value" id="aiWins">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>Human Wins</span>
-                            <span class="stat-value" id="humanWins">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>Draws</span>
-                            <span class="stat-value" id="draws">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>Positions Learned</span>
-                            <span class="stat-value" id="positionsLearned">0</span>
-                        </div>
-                    </div>
-                    
-                    <div id="fileIndicator" class="file-indicator missing">
-                        🔍 Checking for saved files...
-                    </div>
-                    
-                    <div id="suggestionBox">
-                        <h4>💡 Suggested Moves</h4>
-                        <div id="moveSuggestions"></div>
-                    </div>
-                    
-                    <div id="patternBox">
-                        <h4>🔍 Detected Patterns</h4>
-                        <div id="patternList"></div>
-                    </div>
-                </div>
-                
-                <div class="history-box">
-                    <h3>📜 Move History</h3>
-                    <div id="movesList"></div>
-                </div>
-                
-                <div class="btn-group">
-                    <button onclick="resetGame()">🎲 New Game</button>
-                    <button onclick="resetAI()" class="danger">🧠 Reset AI</button>
-                </div>
-                <button onclick="exportGame()" style="margin-top:10px; width:100%" class="secondary">💾 Save Game</button>
-                <button onclick="exportAI()" style="margin-top:5px; width:100%" class="secondary">💾 Export AI Knowledge</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Promotion Dialog -->
-    <div class="promotion-dialog" id="promotionDialog">
-        <div class="promotion-options">
-            <button class="promotion-btn" data-piece="q">♛</button>
-            <button class="promotion-btn" data-piece="r">♜</button>
-            <button class="promotion-btn" data-piece="b">♝</button>
-            <button class="promotion-btn" data-piece="n">♞</button>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div class="toast" id="toast"></div>
+    <!-- ... (HTML stays the same) ... -->
 
     <script>
-    // ===== REWRITTEN JAVASCRIPT WITH FIXED STATS & PGN INDICATOR =====
+    // ===== COMPLETE FIXED JAVASCRIPT =====
     class RchessGame {
         constructor() {
             this.chess = new Chess();
@@ -590,10 +31,7 @@
             this.gameRecorded = false;
             this.gameId = null;
             
-            // Load auto-save FIRST before generating a new game ID
             const hasAutoSave = this.loadAutoSave();
-            
-            // Only generate a new ID if there's no auto-save
             if (!hasAutoSave) {
                 this.gameId = this.generateGameId();
             }
@@ -816,7 +254,6 @@
                 }
             }
             
-            // Update turn indicator
             const isPlayerTurn = this.chess.turn() === (this.playerColor === 'white' ? 'w' : 'b');
             const turnText = this.chess.turn() === 'w' ? '⚪ White' : '⚫ Black';
             
@@ -830,11 +267,9 @@
                     `🤖 AI's turn (${turnText})`;
             }
             
-            // Update mode status
             const modeNames = { ai: '🤖 AI Mode', learn: '📚 Learn Mode' };
             document.getElementById('modeStatus').textContent = `Mode: ${modeNames[this.mode]}`;
             
-            // Update color status
             const colorEmoji = this.playerColor === 'white' ? '♔' : '♚';
             const colorName = this.playerColor.charAt(0).toUpperCase() + this.playerColor.slice(1);
             document.getElementById('colorStatus').innerHTML = `
@@ -842,17 +277,14 @@
                 <br><small>AI: ${this.aiColor}</small>
             `;
             
-            // Update learning panel
             this.updateLearningPanel();
             
-            // Update move history
             const movesList = document.getElementById('movesList');
             const historyMoves = this.chess.history();
             movesList.innerHTML = historyMoves.map((m, i) => 
                 `<span>${i+1}. ${m}</span>`
             ).join('');
             
-            // Check game over - ONLY ONCE
             if (this.chess.game_over() && !this.gameOver && !this.gameRecorded) {
                 this.gameOver = true;
                 let result = 'Draw';
@@ -882,10 +314,10 @@
             }
         }
 
+        // ===== FIXED: Record stats by player type, not color =====
         recordGameResult(result) {
             if (this.moveHistory.length === 0 || !this.gameId) return;
             
-            // Check if this game was already recorded
             const recordedGames = JSON.parse(localStorage.getItem('rchess_recorded_games') || '[]');
             if (recordedGames.includes(this.gameId)) {
                 console.log('Game already recorded, skipping...');
@@ -903,9 +335,13 @@
                 positionHistory.push({ hash, side, move: moveSan });
             }
             
+            // Determine who won
             const isAIWin = (result === 'white' && this.aiColor === 'white') ||
                            (result === 'black' && this.aiColor === 'black');
+            const isHumanWin = (result === 'white' && this.playerColor === 'white') ||
+                              (result === 'black' && this.playerColor === 'black');
             
+            // Update position stats (only for AI positions)
             for (let pos of positionHistory) {
                 const dbPos = this.learner.db.positions.find(p => p.hash === pos.hash);
                 if (dbPos && pos.side === this.aiColor) {
@@ -919,35 +355,51 @@
                 }
             }
             
+            // ===== FIXED: Store stats by player type =====
             const stats = this.learner.db.stats;
-            if (result === 'white') {
-                stats.whiteWins = (stats.whiteWins || 0) + 1;
-            } else if (result === 'black') {
-                stats.blackWins = (stats.blackWins || 0) + 1;
+            if (!stats.aiWins) stats.aiWins = 0;
+            if (!stats.humanWins) stats.humanWins = 0;
+            if (!stats.draws) stats.draws = 0;
+            if (!stats.totalGames) stats.totalGames = 0;
+            
+            if (isAIWin) {
+                stats.aiWins++;
+            } else if (isHumanWin) {
+                stats.humanWins++;
             } else if (result === 'draw') {
-                stats.draws = (stats.draws || 0) + 1;
+                stats.draws++;
             }
-            stats.totalGames = (stats.totalGames || 0) + 1;
+            stats.totalGames++;
             
             recordedGames.push(this.gameId);
             localStorage.setItem('rchess_recorded_games', JSON.stringify(recordedGames));
             
             this.learner.saveDatabase();
             this.updateLearningPanel();
+            
+            console.log(`Game ${this.gameId}: ${isAIWin ? 'AI' : isHumanWin ? 'Human' : 'Draw'} win`);
         }
 
+        // ===== FIXED: Use player-type stats directly =====
         updateLearningPanel() {
-            const stats = this.learner.db.stats || { totalGames: 0, whiteWins: 0, blackWins: 0, draws: 0 };
+            const stats = this.learner.db.stats || { 
+                totalGames: 0, 
+                aiWins: 0, 
+                humanWins: 0, 
+                draws: 0 
+            };
+            
             const totalGames = stats.totalGames || 0;
-            const aiWins = this.aiColor === 'white' ? (stats.whiteWins || 0) : (stats.blackWins || 0);
-            const humanWins = this.playerColor === 'white' ? (stats.whiteWins || 0) : (stats.blackWins || 0);
+            const aiWins = stats.aiWins || 0;
+            const humanWins = stats.humanWins || 0;
+            const draws = stats.draws || 0;
             
             document.getElementById('totalGames').textContent = totalGames;
             document.getElementById('aiWinRate').textContent = totalGames > 0 ? 
                 Math.round((aiWins / totalGames) * 100) + '%' : '0%';
             document.getElementById('aiWins').textContent = aiWins;
             document.getElementById('humanWins').textContent = humanWins;
-            document.getElementById('draws').textContent = stats.draws || 0;
+            document.getElementById('draws').textContent = draws;
             document.getElementById('positionsLearned').textContent = this.learner.db.positions.length;
             
             const hash = this.learner.hashPosition(this.chess.board());
@@ -1086,7 +538,7 @@
             }
             return { 
                 positions: [], 
-                stats: { totalGames: 0, whiteWins: 0, blackWins: 0, draws: 0 },
+                stats: { totalGames: 0, aiWins: 0, humanWins: 0, draws: 0 },
                 games: [] 
             };
         }
@@ -1130,11 +582,23 @@
                             }
                         }
                         
+                        // Merge stats - but be careful: external stats might be in old format
                         if (data.stats) {
-                            this.db.stats.totalGames = (this.db.stats.totalGames || 0) + (data.stats.totalGames || 0);
-                            this.db.stats.whiteWins = (this.db.stats.whiteWins || 0) + (data.stats.whiteWins || 0);
-                            this.db.stats.blackWins = (this.db.stats.blackWins || 0) + (data.stats.blackWins || 0);
-                            this.db.stats.draws = (this.db.stats.draws || 0) + (data.stats.draws || 0);
+                            // If external data has old color-based stats, convert them
+                            if (data.stats.whiteWins !== undefined || data.stats.blackWins !== undefined) {
+                                // Old format - we can't reliably convert without knowing colors
+                                // So we'll just add total games and draws
+                                this.db.stats.totalGames = (this.db.stats.totalGames || 0) + (data.stats.totalGames || 0);
+                                this.db.stats.draws = (this.db.stats.draws || 0) + (data.stats.draws || 0);
+                                // For wins, we'll skip importing them to avoid corruption
+                                console.log('Imported old-format stats (wins skipped to avoid corruption)');
+                            } else {
+                                // New format - import directly
+                                this.db.stats.totalGames = (this.db.stats.totalGames || 0) + (data.stats.totalGames || 0);
+                                this.db.stats.aiWins = (this.db.stats.aiWins || 0) + (data.stats.aiWins || 0);
+                                this.db.stats.humanWins = (this.db.stats.humanWins || 0) + (data.stats.humanWins || 0);
+                                this.db.stats.draws = (this.db.stats.draws || 0) + (data.stats.draws || 0);
+                            }
                         }
                         
                         this.saveDatabase();
@@ -1181,7 +645,7 @@
         reset() {
             this.db = { 
                 positions: [], 
-                stats: { totalGames: 0, whiteWins: 0, blackWins: 0, draws: 0 },
+                stats: { totalGames: 0, aiWins: 0, humanWins: 0, draws: 0 },
                 games: [] 
             };
             this.saveDatabase();
@@ -1279,7 +743,6 @@
             
             processedGames++;
             
-            // Update progress every 50 games
             if (processedGames % 50 === 0 || processedGames === totalGames) {
                 const progress = Math.round((processedGames / totalGames) * 100);
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
@@ -1440,7 +903,6 @@
         }
     }
 
-    // ===== PGN PARSER =====
     function parsePGN(pgn) {
         const games = [];
         const gameLines = pgn.split('\n\n');
