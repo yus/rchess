@@ -8,13 +8,226 @@
     <!-- Add chess.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
-        /* ... your existing styles ... */
+        body {
+            background: #1e4d1e;
+            font-family: 'Segoe UI', system-ui;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            background: #2d5a2d;
+            padding: 25px;
+            border-radius: 28px;
+            border: 2px solid #ebc28b;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+        .board-container {
+            display: flex;
+            justify-content: center;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 70px);
+            grid-template-rows: repeat(8, 70px);
+            border: 5px solid #4a3c31;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            cursor: pointer;
+            position: relative;
+        }
+        .square.light { background: #eed9b2; }
+        .square.dark { background: #b58863; }
+        .square.selected {
+            outline: 4px solid #ffb703;
+            outline-offset: -3px;
+            filter: brightness(1.1);
+        }
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: rgba(0, 200, 0, 0.5);
+            border-radius: 50%;
+        }
+        .sidebar {
+            background: #3b5e3b;
+            border-radius: 18px;
+            padding: 20px;
+            color: white;
+            border: 2px solid #6f8c5d;
+        }
+        .learning-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2d4d2d;
+            border-radius: 15px;
+        }
+        .suggestion {
+            background: #4a3c31;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #f5c542;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat {
+            text-align: center;
+            background: #3b5e3b;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .stat .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffde9e;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .mode-btn.active {
+            background: #f5c542;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            background: #f5c542;
+            color: #1e4d1e;
+            transition: 0.2s;
+        }
+        button:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        button.secondary {
+            background: #6f8c5d;
+            color: white;
+        }
+        .history-box {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .history-box h3 {
+            margin-bottom: 10px;
+        }
+        #movesList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        #movesList span {
+            background: #2d4d2d;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .turn-indicator {
+            font-size: 18px;
+            padding: 10px;
+            background: #2d4d2d;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .pattern-tag {
+            display: inline-block;
+            background: #4a3c31;
+            padding: 3px 10px;
+            border-radius: 15px;
+            margin: 3px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
-    <!-- ... your existing HTML ... -->
+    <div class="game-container">
+        <div class="game-layout">
+            <div class="board-container">
+                <div class="board" id="chessboard"></div>
+            </div>
+            
+            <div class="sidebar">
+                <h2>♟️ Rchess Classic</h2>
+                
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setMode('human')">👤 Human</button>
+                    <button class="mode-btn" onclick="setMode('ai')">🤖 AI</button>
+                    <button class="mode-btn" onclick="setMode('learn')">📚 Learn</button>
+                </div>
+                
+                <div class="turn-indicator" id="turnDisplay">⚪ Your turn</div>
+                
+                <div class="learning-panel" id="learningPanel">
+                    <h3>📊 Learning Stats</h3>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="value" id="posGames">0</div>
+                            <div>Games at position</div>
+                        </div>
+                        <div class="stat">
+                            <div class="value" id="posWinRate">0%</div>
+                            <div>Win rate</div>
+                        </div>
+                    </div>
+                    
+                    <div id="suggestionBox">
+                        <h4>💡 Suggested Moves</h4>
+                        <div id="moveSuggestions"></div>
+                    </div>
+                    
+                    <div id="patternBox">
+                        <h4>🔍 Detected Patterns</h4>
+                        <div id="patternList"></div>
+                    </div>
+                </div>
+                
+                <div class="history-box">
+                    <h3>📜 Move History</h3>
+                    <div id="movesList"></div>
+                </div>
+                
+                <button onclick="resetGame()" style="margin-top:20px; width:100%">🎲 New Game</button>
+                <button onclick="exportGame()" style="margin-top:10px; width:100%" class="secondary">💾 Save Game</button>
+            </div>
+        </div>
+    </div>
 
-    <script src="../lib/rchess-distribution.js"></script>
     <script>
     class RchessGame {
         constructor() {
@@ -137,11 +350,17 @@
             }
             
             // Update turn indicator
-            document.getElementById('turnDisplay').textContent = 
-                this.chess.turn() === 'w' ? '⚪ White\'s turn' : '⚫ Black\'s turn';
+            const turnText = this.chess.turn() === 'w' ? '⚪ White\'s turn' : '⚫ Black\'s turn';
+            document.getElementById('turnDisplay').textContent = turnText;
             
             // Update learning panel
             this.updateLearningPanel();
+            
+            // Update move history
+            const movesList = document.getElementById('movesList');
+            movesList.innerHTML = this.moveHistory.map((m, i) => 
+                `<span>${i+1}. ${m}</span>`
+            ).join('');
             
             // Check game over
             if (this.chess.game_over()) {
@@ -170,6 +389,18 @@
             `).join('') : '<p>No data yet for this position</p>';
             
             document.getElementById('moveSuggestions').innerHTML = suggestionsHtml;
+            
+            // Simple pattern detection
+            const patterns = [];
+            const board = this.chess.board();
+            // Check for common patterns
+            if (this.chess.in_check()) patterns.push('⚡ Check!');
+            if (this.chess.in_checkmate()) patterns.push('♚ Checkmate!');
+            if (this.chess.insufficient_material()) patterns.push('⚖️ Insufficient material');
+            
+            document.getElementById('patternList').innerHTML = patterns.length ?
+                patterns.map(p => `<span class="pattern-tag">${p}</span>`).join('') :
+                '<p>No patterns detected</p>';
         }
 
         handleClick(row, col) {
