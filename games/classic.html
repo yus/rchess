@@ -3,251 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rchess · Classic with Learning</title>
+    <title>Rchess · Classic with AI</title>
     <link rel="stylesheet" href="../lib/rchess-style.css">
+    <!-- Add chess.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
-        body {
-            background: #1e4d1e;
-            font-family: 'Segoe UI', system-ui;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .game-container {
-            background: #2d5a2d;
-            padding: 25px;
-            border-radius: 28px;
-            border: 2px solid #ebc28b;
-            max-width: 1200px;
-            width: 100%;
-        }
-        .game-layout {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 20px;
-        }
-        .board-container {
-            display: flex;
-            justify-content: center;
-        }
-        .board {
-            display: grid;
-            grid-template-columns: repeat(8, 70px);
-            grid-template-rows: repeat(8, 70px);
-            border: 5px solid #4a3c31;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .square {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            cursor: pointer;
-        }
-        .square.light { background: #eed9b2; }
-        .square.dark { background: #b58863; }
-        .square.selected {
-            outline: 4px solid #ffb703;
-            outline-offset: -3px;
-            filter: brightness(1.1);
-        }
-        .square.valid-move::after {
-            content: '';
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            background: rgba(0, 200, 0, 0.5);
-            border-radius: 50%;
-        }
-        .sidebar {
-            background: #3b5e3b;
-            border-radius: 18px;
-            padding: 20px;
-            color: white;
-            border: 2px solid #6f8c5d;
-        }
-        .learning-panel {
-            margin-top: 20px;
-            padding: 15px;
-            background: #2d4d2d;
-            border-radius: 15px;
-        }
-        .suggestion {
-            background: #4a3c31;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-            border-left: 4px solid #f5c542;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .stat {
-            text-align: center;
-            background: #3b5e3b;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        .stat .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .mode-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-        .mode-btn.active {
-            background: #f5c542;
-        }
+        /* ... your existing styles ... */
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="game-layout">
-            <div class="board-container">
-                <div class="board" id="chessboard"></div>
-            </div>
-            
-            <div class="sidebar">
-                <h2>♟️ Rchess Classic</h2>
-                
-                <div class="mode-selector">
-                    <button class="mode-btn active" onclick="setMode('human')">👤 Human</button>
-                    <button class="mode-btn" onclick="setMode('ai')">🤖 AI</button>
-                    <button class="mode-btn" onclick="setMode('learn')">📚 Learn</button>
-                </div>
-                
-                <div class="turn-indicator" id="turnDisplay">⚪ Your turn</div>
-                
-                <div class="learning-panel" id="learningPanel">
-                    <h3>📊 Learning Stats</h3>
-                    <div class="stats">
-                        <div class="stat">
-                            <div class="value" id="posGames">0</div>
-                            <div>Games at position</div>
-                        </div>
-                        <div class="stat">
-                            <div class="value" id="posWinRate">0%</div>
-                            <div>Win rate</div>
-                        </div>
-                    </div>
-                    
-                    <div id="suggestionBox">
-                        <h4>💡 Suggested Moves</h4>
-                        <div id="moveSuggestions"></div>
-                    </div>
-                    
-                    <div id="patternBox">
-                        <h4>🔍 Detected Patterns</h4>
-                        <div id="patternList"></div>
-                    </div>
-                </div>
-                
-                <div class="history-box" style="margin-top:20px">
-                    <h3>📜 Move History</h3>
-                    <div id="movesList" style="max-height:200px; overflow-y:auto"></div>
-                </div>
-                
-                <button onclick="resetGame()" style="margin-top:20px; width:100%">🎲 New Game</button>
-                <button onclick="exportGame()" style="margin-top:10px; width:100%" class="secondary">💾 Save Game</button>
-            </div>
-        </div>
-    </div>
+    <!-- ... your existing HTML ... -->
 
     <script src="../lib/rchess-distribution.js"></script>
     <script>
     class RchessGame {
         constructor() {
-            this.board = Array(8).fill().map(() => Array(8).fill(null));
-            this.currentPlayer = 'white';
+            // Use chess.js for game logic
+            this.chess = new Chess();
             this.humanColor = 'white';
             this.mode = 'human';
             this.selectedSquare = null;
-            this.validMoves = [];
             this.moveHistory = [];
             this.learner = new RchessLearner();
-            this.setupBoard();
-        }
-
-        setupBoard() {
-            // Standard starting position
-            const setup = [
-                ['rook','knight','bishop','queen','king','bishop','knight','rook'],
-                ...Array(8).fill('pawn')
-            ];
-            
-            for(let c=0; c<8; c++) {
-                this.board[0][c] = this.createPiece('white', setup[0][c], 0, c);
-                this.board[1][c] = this.createPiece('white', 'pawn', 1, c);
-                this.board[6][c] = this.createPiece('black', 'pawn', 6, c);
-                this.board[7][c] = this.createPiece('black', setup[0][c], 7, c);
-            }
-        }
-
-        createPiece(color, type, row, col) {
-            return {
-                type: this.symbol(color, type),
-                pieceType: type,
-                color: color,
-                hasMoved: false,
-                id: `${color}_${type}_${row}_${col}_${Date.now()}`
-            };
-        }
-
-        symbol(color, type) {
-            const symbols = {
-                white: { rook:'♜', knight:'♞', bishop:'♝', queen:'♛', king:'♚', pawn:'♟' },
-                black: { rook:'♖', knight:'♘', bishop:'♗', queen:'♕', king:'♔', pawn:'♙' }
-            };
-            return symbols[color][type];
+            this.updateDisplay();
         }
 
         getValidMoves(row, col) {
-            // Simplified - in real implementation, use the full rules from your library
-            return [];
+            const square = String.fromCharCode(97 + col) + (8 - row);
+            const moves = this.chess.moves({ square: square, verbose: true });
+            return moves.map(m => ({
+                from: { row: 8 - parseInt(m.from[1]), col: m.from.charCodeAt(0) - 97 },
+                to: { row: 8 - parseInt(m.to[1]), col: m.to.charCodeAt(0) - 97 }
+            }));
         }
 
         makeMove(from, to) {
-            // Record position before move
-            let hash = this.learner.hashPosition(this.board);
+            const fromSquare = String.fromCharCode(97 + from.col) + (8 - from.row);
+            const toSquare = String.fromCharCode(97 + to.col) + (8 - to.row);
             
-            // Make the move
-            this.board[to.row][to.col] = {...this.board[from.row][from.col], hasMoved: true};
-            this.board[from.row][from.col] = null;
+            try {
+                const move = this.chess.move({ from: fromSquare, to: toSquare, promotion: 'q' });
+                if (move) {
+                    this.moveHistory.push(move.san);
+                    this.updateDisplay();
+                    return true;
+                }
+            } catch (e) {
+                console.error('Invalid move:', e);
+            }
+            return false;
+        }
+
+        aiMove() {
+            if (this.chess.game_over()) return;
             
-            // Record move in history
-            let moveNotation = `${String.fromCharCode(97+from.col)}${from.row+1}-${String.fromCharCode(97+to.col)}${to.row+1}`;
-            this.moveHistory.push(moveNotation);
+            // Get all valid moves
+            const moves = this.chess.moves({ verbose: true });
+            if (moves.length === 0) return;
             
-            // Update display
-            this.updateDisplay();
+            // Try to use learned moves first
+            let move = null;
+            const suggestions = this.getSuggestions();
             
-            return true;
+            if (suggestions.length > 0 && Math.random() < 0.7) {
+                // Find a valid learned move
+                for (let suggestion of suggestions) {
+                    const found = moves.find(m => m.san === suggestion.move);
+                    if (found) {
+                        move = found;
+                        break;
+                    }
+                }
+            }
+            
+            // Fallback to random move
+            if (!move) {
+                move = moves[Math.floor(Math.random() * moves.length)];
+            }
+            
+            // Execute the move
+            const result = this.chess.move(move);
+            if (result) {
+                this.moveHistory.push(result.san);
+                this.updateDisplay();
+            }
         }
 
         getSuggestions() {
-            let hash = this.learner.hashPosition(this.board);
-            let pos = this.learner.db.positions.find(p => p.hash === hash);
+            const hash = this.learner.hashPosition(this.chess.board());
+            const pos = this.learner.db.positions.find(p => p.hash === hash);
             
-            if(!pos) return [];
+            if (!pos) return [];
             
             return Object.entries(pos.moves)
                 .map(([move, stats]) => ({
@@ -255,105 +101,128 @@
                     winRate: stats.wins / stats.played,
                     played: stats.played
                 }))
-                .sort((a,b) => b.winRate - a.winRate)
+                .sort((a, b) => b.winRate - a.winRate)
                 .slice(0, 3);
         }
 
         updateDisplay() {
-            // Render board
-            let boardEl = document.getElementById('chessboard');
+            const boardEl = document.getElementById('chessboard');
             boardEl.innerHTML = '';
             
-            for(let r=0; r<8; r++) {
-                for(let c=0; c<8; c++) {
-                    let square = document.createElement('div');
-                    square.className = `square ${(r+c)%2===0 ? 'light' : 'dark'}`;
+            const board = this.chess.board();
+            
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const square = document.createElement('div');
+                    square.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
                     square.dataset.row = r;
                     square.dataset.col = c;
                     
-                    let piece = this.board[r][c];
-                    if(piece) {
-                        square.textContent = piece.type;
+                    const piece = board[r][c];
+                    if (piece) {
+                        const symbols = {
+                            w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+                            b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
+                        };
+                        square.textContent = symbols[piece.color][piece.type];
                     }
                     
-                    if(this.selectedSquare?.row === r && this.selectedSquare?.col === c) {
+                    if (this.selectedSquare?.row === r && this.selectedSquare?.col === c) {
                         square.classList.add('selected');
                     }
                     
-                    square.addEventListener('click', () => this.handleClick(r,c));
+                    square.addEventListener('click', () => this.handleClick(r, c));
                     boardEl.appendChild(square);
                 }
             }
             
+            // Update turn indicator
+            document.getElementById('turnDisplay').textContent = 
+                this.chess.turn() === 'w' ? '⚪ White\'s turn' : '⚫ Black\'s turn';
+            
             // Update learning panel
             this.updateLearningPanel();
+            
+            // Check game over
+            if (this.chess.game_over()) {
+                let result = 'Draw';
+                if (this.chess.in_checkmate()) {
+                    result = this.chess.turn() === 'w' ? 'Black wins!' : 'White wins!';
+                }
+                document.getElementById('turnDisplay').textContent = `Game Over - ${result}`;
+            }
         }
 
         updateLearningPanel() {
-            let hash = this.learner.hashPosition(this.board);
-            let pos = this.learner.db.positions.find(p => p.hash === hash);
+            const hash = this.learner.hashPosition(this.chess.board());
+            const pos = this.learner.db.positions.find(p => p.hash === hash);
             
             document.getElementById('posGames').textContent = pos?.games_played || 0;
             document.getElementById('posWinRate').textContent = pos ? 
                 ((pos.wins / pos.games_played * 100).toFixed(1) + '%') : '0%';
             
-            let suggestions = this.getSuggestions();
-            let suggestionsHtml = suggestions.length ? suggestions.map(s => `
+            const suggestions = this.getSuggestions();
+            const suggestionsHtml = suggestions.length ? suggestions.map(s => `
                 <div class="suggestion">
                     <strong>${s.move}</strong>
-                    <div>Win rate: ${(s.winRate*100).toFixed(1)}% (${s.played} games)</div>
+                    <div>Win rate: ${(s.winRate * 100).toFixed(1)}% (${s.played} games)</div>
                 </div>
             `).join('') : '<p>No data yet for this position</p>';
             
             document.getElementById('moveSuggestions').innerHTML = suggestionsHtml;
-            
-            let patterns = pos?.patterns || [];
-            document.getElementById('patternList').innerHTML = patterns.length ?
-                patterns.map(p => `<span class="pattern-tag">${p}</span>`).join('') :
-                '<p>No patterns detected</p>';
         }
 
         handleClick(row, col) {
-            if(this.mode === 'ai' && this.currentPlayer !== this.humanColor) return;
+            if (this.chess.game_over()) return;
             
-            if(this.selectedSquare) {
-                this.makeMove(this.selectedSquare, {row, col});
-                this.selectedSquare = null;
-                this.validMoves = [];
+            // If AI mode and it's not human's turn, ignore clicks
+            if (this.mode === 'ai' && this.chess.turn() !== (this.humanColor === 'white' ? 'w' : 'b')) {
+                return;
+            }
+            
+            const square = String.fromCharCode(97 + col) + (8 - row);
+            
+            if (this.selectedSquare) {
+                // Try to make a move
+                const fromSquare = String.fromCharCode(97 + this.selectedSquare.col) + (8 - this.selectedSquare.row);
+                const toSquare = square;
                 
-                if(this.mode === 'ai' && this.currentPlayer !== this.humanColor) {
-                    setTimeout(() => this.aiMove(), 500);
+                const move = this.chess.move({ from: fromSquare, to: toSquare, promotion: 'q' });
+                if (move) {
+                    this.moveHistory.push(move.san);
+                    this.selectedSquare = null;
+                    this.updateDisplay();
+                    
+                    // If AI mode and game not over, trigger AI move
+                    if (this.mode === 'ai' && !this.chess.game_over()) {
+                        setTimeout(() => {
+                            this.aiMove();
+                            this.updateDisplay();
+                        }, 300);
+                    }
+                } else {
+                    // Invalid move - deselect
+                    this.selectedSquare = null;
+                    this.updateDisplay();
                 }
             } else {
-                let piece = this.board[row][col];
-                if(piece && piece.color === this.currentPlayer) {
-                    this.selectedSquare = {row, col};
-                    this.validMoves = this.getValidMoves(row, col);
+                // Select a piece
+                const piece = this.chess.get(square);
+                if (piece && piece.color === (this.chess.turn() === 'w' ? 'w' : 'b')) {
+                    this.selectedSquare = { row, col };
+                    this.updateDisplay();
                 }
             }
-            this.updateDisplay();
-        }
-
-        aiMove() {
-            // Simple AI that uses learned suggestions
-            let suggestions = this.getSuggestions();
-            if(suggestions.length > 0 && Math.random() < 0.7) {
-                // Use learned move
-                let move = suggestions[0].move;
-                let from = {row: 8-parseInt(move[1]), col: move.charCodeAt(0)-97};
-                let to = {row: 8-parseInt(move[3]), col: move.charCodeAt(2)-97};
-                this.makeMove(from, to);
-            } else {
-                // Random move as fallback
-                // ... implementation omitted for brevity
-            }
-            this.currentPlayer = this.humanColor;
-            this.updateDisplay();
         }
 
         recordGame(winner) {
-            // Record all positions from the game
-            // Implementation depends on how you store game history
+            // Simple implementation - store the game result
+            const gameData = {
+                moves: this.moveHistory,
+                winner: winner || 'draw',
+                timestamp: new Date().toISOString()
+            };
+            this.learner.db.games.push(gameData);
             this.learner.saveDatabase();
         }
     }
@@ -365,26 +234,28 @@
 
         loadDatabase() {
             let data = localStorage.getItem('rchess_db');
-            return data ? JSON.parse(data) : {positions: [], games: []};
+            return data ? JSON.parse(data) : { positions: [], games: [] };
         }
 
         hashPosition(board) {
-            let str = '';
-            for(let r=0; r<8; r++) {
+            // Simple FEN-like hash for position
+            let fen = '';
+            for (let r = 0; r < 8; r++) {
                 let empty = 0;
-                for(let c=0; c<8; c++) {
-                    if(board[r][c]) {
-                        if(empty > 0) str += empty;
-                        str += board[r][c].color[0] + board[r][c].pieceType[0];
+                for (let c = 0; c < 8; c++) {
+                    const piece = board[r][c];
+                    if (piece) {
+                        if (empty > 0) fen += empty;
+                        fen += piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
                         empty = 0;
                     } else {
                         empty++;
                     }
                 }
-                if(empty > 0) str += empty;
-                if(r<7) str += '/';
+                if (empty > 0) fen += empty;
+                if (r < 7) fen += '/';
             }
-            return btoa(str).slice(0,8);
+            return btoa(fen).slice(0, 8);
         }
 
         saveDatabase() {
@@ -402,6 +273,7 @@
         game.mode = mode;
         document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
         event.target.classList.add('active');
+        game.updateDisplay();
     }
 
     function resetGame() {
