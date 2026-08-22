@@ -472,6 +472,77 @@
                 padding: 8px;
             }
         }
+
+        /* Add these new styles for training */
+        .training-controls {
+            margin-top: 15px;
+            padding: 15px;
+            background: #2d4d2d;
+            border-radius: 15px;
+            border: 2px solid #4a6a4a;
+        }
+        .training-controls h4 {
+            margin: 0 0 10px 0;
+            color: #ffde9e;
+        }
+        .training-controls .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #1e4d1e;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .training-controls .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s;
+            border-radius: 10px;
+            width: 0%;
+        }
+        .training-controls .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .training-controls .stats-row .stat-item {
+            text-align: center;
+            background: #1e4d1e;
+            padding: 5px;
+            border-radius: 8px;
+        }
+        .training-controls .stats-row .stat-item .label {
+            color: #aaa;
+            font-size: 11px;
+        }
+        .training-controls .stats-row .stat-item .value {
+            font-weight: bold;
+            color: #ffde9e;
+            font-size: 16px;
+        }
+        .btn-train {
+            background: #2196F3;
+            color: white;
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+        }
+        .btn-train:hover {
+            background: #1976D2;
+        }
+        .btn-train:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .btn-train.active {
+            background: #f44336;
+        }
+        .btn-train.active:hover {
+            background: #d32f2f;
+        }
     </style>
 </head>
 <body>
@@ -555,6 +626,33 @@
                     <button onclick="resetGame()">🎲 New Game</button>
                     <button onclick="resetAI()" class="danger">🧠 Reset AI</button>
                 </div>
+
+                <!-- Add this inside the sidebar, after the btn-group -->
+                <div class="training-controls" id="trainingPanel">
+                    <h4>🚀 Rapid Training</h4>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <div class="label">Games Played</div>
+                            <div class="value" id="trainGames">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">AI Win Rate</div>
+                            <div class="value" id="trainWinRate">0%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">New Positions</div>
+                            <div class="value" id="trainPositions">0</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="fill" id="trainProgress" style="width: 0%"></div>
+                    </div>
+                    <button id="trainBtn" class="btn-train" onclick="toggleTraining()">▶ Start Training</button>
+                    <div style="margin-top: 8px; font-size: 12px; color: #aaa; text-align: center;">
+                        <span id="trainStatus">Ready</span>
+                    </div>
+                </div>
+                
                 <button onclick="exportGame()" style="margin-top:10px; width:100%" class="secondary">💾 Save Game</button>
                 <button onclick="exportAI()" style="margin-top:5px; width:100%" class="secondary">💾 Export AI Knowledge</button>
             </div>
@@ -1215,6 +1313,288 @@
             this.saveDatabase();
             localStorage.setItem('rchess_recorded_games', JSON.stringify([]));
         }
+    }
+
+    // ===== RAPID TRAINING MODULE =====
+    class RapidTrainer {
+        constructor(game) {
+            this.game = game;
+            this.isRunning = false;
+            this.totalGames = 0;
+            this.maxGames = 0;
+            this.gamesPlayed = 0;
+            this.positionsBefore = 0;
+            this.wins = 0;
+            this.losses = 0;
+            this.draws = 0;
+            this.startTime = null;
+            this.timer = null;
+            this.isPaused = false;
+            this.batchSize = 10; // Games per batch to avoid freezing
+        }
+
+        start(games = 1000) {
+            if (this.isRunning) return;
+            
+            this.isRunning = true;
+            this.totalGames = games;
+            this.gamesPlayed = 0;
+            this.wins = 0;
+            this.losses = 0;
+            this.draws = 0;
+            this.positionsBefore = this.game.learner.db.positions.length;
+            this.startTime = Date.now();
+            
+            // Update UI
+            document.getElementById('trainBtn').textContent = '⏹ Stop Training';
+            document.getElementById('trainBtn').classList.add('active');
+            document.getElementById('trainStatus').textContent = 'Training in progress...';
+            
+            // Start training loop
+            this.trainLoop();
+        }
+
+        stop() {
+            this.isRunning = false;
+            this.isPaused = true;
+            document.getElementById('trainBtn').textContent = '▶ Resume Training';
+            document.getElementById('trainBtn').classList.remove('active');
+            document.getElementById('trainStatus').textContent = 'Paused';
+        }
+
+        trainLoop() {
+            if (!this.isRunning) return;
+
+            // Play a batch of games
+            const batchStart = Date.now();
+            let gamesInBatch = 0;
+
+            while (gamesInBatch < this.batchSize && this.gamesPlayed < this.totalGames) {
+                this.playOneGame();
+                gamesInBatch++;
+            }
+
+            // Update UI
+            this.updateUI();
+
+            // Check if complete
+            if (this.gamesPlayed >= this.totalGames) {
+                this.finish();
+                return;
+            }
+
+            // Schedule next batch
+            const elapsed = Date.now() - batchStart;
+            const delay = Math.max(0, 50 - elapsed); // Small delay to prevent freezing
+            setTimeout(() => this.trainLoop(), delay);
+        }
+
+        playOneGame() {
+            const chess = new Chess();
+            const moves = [];
+            const moveHistory = [];
+            
+            // Play until game ends (max 200 moves to prevent infinite loops)
+            let moveCount = 0;
+            const maxMoves = 200;
+            
+            while (!chess.game_over() && moveCount < maxMoves) {
+                const legalMoves = chess.moves({ verbose: true });
+                if (legalMoves.length === 0) break;
+                
+                // Use AI knowledge to pick moves (with randomness)
+                let move = this.pickMove(chess, legalMoves);
+                chess.move(move);
+                moves.push(move.san);
+                moveCount++;
+            }
+            
+            // Determine result
+            let result = 'draw';
+            if (chess.in_checkmate()) {
+                result = chess.turn() === 'w' ? 'black' : 'white';
+            }
+            
+            // Record the game for learning
+            this.recordGame(moves, result);
+            this.gamesPlayed++;
+            
+            // Track wins/losses
+            const isAIWin = (result === 'white' && this.game.aiColor === 'white') ||
+                           (result === 'black' && this.game.aiColor === 'black');
+            if (result !== 'draw') {
+                if (isAIWin) this.wins++;
+                else this.losses++;
+            } else {
+                this.draws++;
+            }
+        }
+
+        pickMove(chess, legalMoves) {
+            // Use learning data if available
+            const hash = this.game.learner.hashPosition(chess.board());
+            const pos = this.game.learner.db.positions.find(p => p.hash === hash);
+            
+            if (pos && Object.keys(pos.moves).length > 0 && Math.random() < 0.7) {
+                // Sort moves by win rate
+                const moveStats = Object.entries(pos.moves)
+                    .map(([moveSan, stats]) => ({
+                        san: moveSan,
+                        winRate: stats.wins / (stats.played || 1),
+                        played: stats.played
+                    }))
+                    .sort((a, b) => b.winRate - a.winRate);
+                
+                // Try to find a valid move from the top choices
+                for (let stat of moveStats.slice(0, 5)) {
+                    const found = legalMoves.find(m => m.san === stat.san);
+                    if (found) {
+                        // Add small randomness to avoid always playing the same move
+                        if (Math.random() < 0.8) {
+                            return found;
+                        }
+                    }
+                }
+            }
+            
+            // Random move with slight bias towards better moves
+            // Give better moves higher chance
+            const weightedMoves = legalMoves.map(m => {
+                let score = Math.random();
+                // Prefer captures and checks
+                if (m.captured) score += 0.3;
+                if (m.san.includes('+')) score += 0.2;
+                // Prefer center control
+                const toFile = m.to.charCodeAt(0) - 97;
+                const toRank = parseInt(m.to[1]);
+                const centerDist = Math.abs(toFile - 3.5) + Math.abs(toRank - 3.5);
+                score += (7 - centerDist) * 0.05;
+                return { move: m, score: score };
+            });
+            
+            weightedMoves.sort((a, b) => b.score - a.score);
+            // Pick from top 3 with probability
+            const topMoves = weightedMoves.slice(0, Math.min(3, weightedMoves.length));
+            const pick = topMoves[Math.floor(Math.random() * topMoves.length)];
+            return pick.move;
+        }
+
+        recordGame(moves, result) {
+            // Store positions and moves in the database
+            const tempChess = new Chess();
+            const positionHistory = [];
+            
+            for (let i = 0; i < moves.length; i++) {
+                const moveSan = moves[i];
+                tempChess.move(moveSan);
+                const hash = this.game.learner.hashPosition(tempChess.board());
+                const side = i % 2 === 0 ? 'white' : 'black';
+                positionHistory.push({ hash, side, move: moveSan });
+            }
+            
+            // Update database
+            for (let pos of positionHistory) {
+                const dbPos = this.game.learner.db.positions.find(p => p.hash === pos.hash);
+                if (dbPos) {
+                    // Only count positions where AI would have moved
+                    // For training, we consider both sides as AI
+                    dbPos.games_played = (dbPos.games_played || 0) + 1;
+                    
+                    // Check if this side won
+                    const isWin = (result === pos.side);
+                    if (isWin && result !== 'draw') {
+                        dbPos.wins = (dbPos.wins || 0) + 1;
+                        if (dbPos.moves[pos.move]) {
+                            dbPos.moves[pos.move].wins = (dbPos.moves[pos.move].wins || 0) + 1;
+                        }
+                    }
+                }
+            }
+            
+            // Update global stats (for training, we track both sides as AI learning)
+            const stats = this.game.learner.db.stats;
+            if (result === 'white' || result === 'black') {
+                // We don't know which side is AI in training, so we track both
+                // But for simplicity, we'll just increment total games
+                stats.totalGames = (stats.totalGames || 0) + 1;
+                // We'll track wins separately for training metrics
+            }
+            
+            // Save periodically (every 100 games)
+            if (this.gamesPlayed % 100 === 0) {
+                this.game.learner.saveDatabase();
+            }
+        }
+
+        updateUI() {
+            const progress = (this.gamesPlayed / this.totalGames) * 100;
+            document.getElementById('trainProgress').style.width = Math.min(100, progress) + '%';
+            document.getElementById('trainGames').textContent = this.gamesPlayed;
+            
+            const total = this.wins + this.losses + this.draws;
+            const winRate = total > 0 ? Math.round((this.wins / total) * 100) : 0;
+            document.getElementById('trainWinRate').textContent = winRate + '%';
+            
+            const newPositions = this.game.learner.db.positions.length - this.positionsBefore;
+            document.getElementById('trainPositions').textContent = newPositions;
+            
+            const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(0);
+            const status = `⏱ ${elapsed}s • ${this.gamesPlayed}/${this.totalGames} games • ${winRate}% win rate`;
+            document.getElementById('trainStatus').textContent = status;
+        }
+
+        finish() {
+            this.isRunning = false;
+            const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(0);
+            const newPositions = this.game.learner.db.positions.length - this.positionsBefore;
+            
+            document.getElementById('trainBtn').textContent = '✅ Training Complete!';
+            document.getElementById('trainBtn').classList.remove('active');
+            document.getElementById('trainStatus').textContent = 
+                `✅ Complete! ${this.gamesPlayed} games in ${elapsed}s • ${newPositions} new positions • ${this.wins} wins`;
+            document.getElementById('trainProgress').style.width = '100%';
+            
+            // Save final database
+            this.game.learner.saveDatabase();
+            this.game.updateLearningPanel();
+            
+            showToast(`🎉 Training complete! ${this.gamesPlayed} games in ${elapsed}s!`, 'success');
+        }
+    }
+
+    let trainer = null;
+
+    function toggleTraining() {
+        if (!game) return;
+        
+        if (trainer && trainer.isRunning) {
+            trainer.stop();
+            return;
+        }
+        
+        if (trainer && trainer.isPaused) {
+            // Resume
+            trainer.isRunning = true;
+            trainer.isPaused = false;
+            document.getElementById('trainBtn').textContent = '⏹ Stop Training';
+            document.getElementById('trainBtn').classList.add('active');
+            document.getElementById('trainStatus').textContent = 'Resuming...';
+            trainer.trainLoop();
+            return;
+        }
+        
+        // Start new training
+        const games = prompt('How many games to simulate for training?', '1000');
+        if (!games) return;
+        
+        const numGames = parseInt(games);
+        if (isNaN(numGames) || numGames < 1) {
+            showToast('❌ Please enter a valid number', 'error');
+            return;
+        }
+        
+        trainer = new RapidTrainer(game);
+        trainer.start(numGames);
     }
 
     let game;
