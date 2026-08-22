@@ -110,6 +110,12 @@
         .square.last-move {
             background: rgba(255, 255, 0, 0.3) !important;
         }
+
+        .debug-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+        }
         
         @-moz-document url-prefix() {
             .square {
@@ -647,8 +653,10 @@
                     <div class="board" id="chessboard"></div>
                 </div>
                 <!-- Add debug log panel -->
-                <div class="debug-log" id="debugLog">
-                    <div>🔍 Debug Log Started</div>
+                <div class="debug-wrapper">
+                    <div class="debug-log" id="debugLog">
+                        <div>🔍 Debug Log Started</div>
+                    </div>
                 </div>
             </div>
 
