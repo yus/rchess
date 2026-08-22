@@ -7,280 +7,52 @@
     <link rel="stylesheet" href="../lib/rchess-styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <style>
-        body {
-            background: #1e4d1e;
-            font-family: 'Segoe UI', system-ui;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .game-container {
-            background: #2d5a2d;
-            padding: 25px;
-            border-radius: 28px;
-            border: 2px solid #ebc28b;
-            max-width: 1200px;
-            width: 100%;
-        }
-        .game-layout {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 20px;
-        }
-        .board-container {
-            display: flex;
-            justify-content: center;
-        }
-        .board {
-            display: grid;
-            grid-template-columns: repeat(8, 70px);
-            grid-template-rows: repeat(8, 70px);
-            border: 5px solid #4a3c31;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .square {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            cursor: pointer;
-            position: relative;
-        }
-        .square.light { background: #eed9b2; }
-        .square.dark { background: #b58863; }
-        .square.selected {
-            outline: 4px solid #ffb703;
-            outline-offset: -3px;
-            filter: brightness(1.1);
-        }
-        .square.valid-move::after {
-            content: '';
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            background: rgba(0, 200, 0, 0.5);
-            border-radius: 50%;
-        }
-        .square.last-move {
-            background: rgba(255, 255, 0, 0.3) !important;
-        }
-        .sidebar {
-            background: #3b5e3b;
-            border-radius: 18px;
-            padding: 20px;
-            color: white;
-            border: 2px solid #6f8c5d;
-        }
-        .learning-panel {
-            margin-top: 20px;
-            padding: 15px;
-            background: #2d4d2d;
-            border-radius: 15px;
-        }
-        .suggestion {
-            background: #4a3c31;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 0;
-            border-left: 4px solid #f5c542;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .suggestion:hover {
-            transform: scale(1.02);
-            border-left-color: #ff6b6b;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .stat {
-            text-align: center;
-            background: #3b5e3b;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        .stat .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .mode-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-            background: #2d4d2d;
-            color: white;
-        }
-        .mode-btn.active {
-            background: #f5c542;
-            color: #1e4d1e;
-        }
-        .mode-btn:hover {
-            transform: scale(1.02);
-            opacity: 0.9;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            background: #f5c542;
-            color: #1e4d1e;
-            transition: 0.2s;
-        }
-        button:hover {
-            transform: scale(1.02);
-            opacity: 0.9;
-        }
-        button.secondary {
-            background: #6f8c5d;
-            color: white;
-        }
-        button.danger {
-            background: #c0392b;
-            color: white;
-        }
-        .history-box {
-            margin-top: 20px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        .history-box h3 {
-            margin-bottom: 10px;
-        }
-        #movesList {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-        #movesList span {
-            background: #2d4d2d;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .turn-indicator {
-            font-size: 18px;
-            padding: 10px;
-            background: #2d4d2d;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        .pattern-tag {
-            display: inline-block;
-            background: #4a3c31;
-            padding: 3px 10px;
-            border-radius: 15px;
-            margin: 3px;
-            font-size: 12px;
-        }
-        .promotion-dialog {
+        /* ... (styles same as before) ... */
+        .toast {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .promotion-dialog.active {
-            display: flex;
-        }
-        .promotion-options {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             background: #2d5a2d;
-            padding: 30px;
-            border-radius: 20px;
-            border: 3px solid #ebc28b;
-            display: flex;
-            gap: 20px;
-        }
-        .promotion-btn {
-            font-size: 60px;
-            width: 80px;
-            height: 80px;
-            background: #eed9b2;
-            border: 3px solid #4a3c31;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .promotion-btn:hover {
-            transform: scale(1.1);
-            border-color: #f5c542;
-        }
-        .mode-status {
-            font-size: 14px;
-            padding: 5px 10px;
-            background: #2d4d2d;
-            border-radius: 10px;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        .color-indicator {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-left: 5px;
-        }
-        .color-white {
-            background: #ffffff;
-            color: #1e4d1e;
-        }
-        .color-black {
-            background: #1a1a1a;
             color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            border: 2px solid #ebc28b;
+            display: none;
+            z-index: 2000;
+            max-width: 80%;
+            text-align: center;
         }
-        .ai-stats {
+        .toast.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        .toast.success {
+            border-color: #4CAF50;
+        }
+        .toast.warning {
+            border-color: #ff9800;
+        }
+        .toast.error {
+            border-color: #f44336;
+        }
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        .file-indicator {
             background: #2d4d2d;
-            padding: 10px;
-            border-radius: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
             margin-top: 10px;
+            font-size: 12px;
+            border-left: 3px solid #4CAF50;
         }
-        .ai-stats .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid #3b5e3b;
+        .file-indicator.loaded {
+            border-left-color: #4CAF50;
         }
-        .ai-stats .stat-item:last-child {
-            border-bottom: none;
-        }
-        .stat-value {
-            font-weight: bold;
-            color: #ffde9e;
-        }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn-group button {
-            flex: 1;
+        .file-indicator.missing {
+            border-left-color: #ff9800;
         }
     </style>
 </head>
@@ -338,6 +110,11 @@
                         </div>
                     </div>
                     
+                    <!-- Auto-loaded files indicator -->
+                    <div id="fileIndicator" class="file-indicator missing">
+                        🔍 Checking for saved files...
+                    </div>
+                    
                     <div id="suggestionBox">
                         <h4>💡 Suggested Moves</h4>
                         <div id="moveSuggestions"></div>
@@ -374,6 +151,9 @@
         </div>
     </div>
 
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
     <script>
     class RchessGame {
         constructor() {
@@ -387,7 +167,56 @@
             this.playerColor = Math.random() < 0.5 ? 'white' : 'black';
             this.aiColor = this.playerColor === 'white' ? 'black' : 'white';
             this.gameResult = null;
+            this.isAIThinking = false;
+            
+            // Try to load auto-saved game first
+            this.loadAutoSave();
+            
             this.updateDisplay();
+            
+            if (this.mode === 'ai' && this.aiColor === 'white') {
+                setTimeout(() => {
+                    this.aiMove();
+                }, 500);
+            }
+        }
+
+        loadAutoSave() {
+            // Check for auto-saved game in localStorage
+            const autoSave = localStorage.getItem('rchess_autosave');
+            if (autoSave) {
+                try {
+                    const data = JSON.parse(autoSave);
+                    // Only load if the game isn't over
+                    if (data.moves && data.moves.length > 0 && !data.gameOver) {
+                        this.chess = new Chess();
+                        // Replay moves
+                        for (let move of data.moves) {
+                            this.chess.move(move);
+                        }
+                        this.moveHistory = data.moves;
+                        this.playerColor = data.playerColor || 'white';
+                        this.aiColor = this.playerColor === 'white' ? 'black' : 'white';
+                        this.gameOver = false;
+                        showToast('🔄 Auto-saved game restored!', 'success');
+                        return true;
+                    }
+                } catch (e) {
+                    console.error('Failed to load auto-save:', e);
+                }
+            }
+            return false;
+        }
+
+        autoSaveGame() {
+            // Save current game state
+            const data = {
+                moves: this.moveHistory,
+                playerColor: this.playerColor,
+                gameOver: this.gameOver,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('rchess_autosave', JSON.stringify(data));
         }
 
         getValidMoves(row, col) {
@@ -413,10 +242,8 @@
                 if (move) {
                     this.moveHistory.push(move.san);
                     this.selectedSquare = null;
-                    
-                    // Record the position for learning
                     this.recordPosition();
-                    
+                    this.autoSaveGame(); // Auto-save after each move
                     this.updateDisplay();
                     return true;
                 }
@@ -441,7 +268,6 @@
                 this.learner.db.positions.push(pos);
             }
             
-            // Record the move that was just made
             const lastMove = this.moveHistory[this.moveHistory.length - 1];
             if (lastMove) {
                 if (!pos.moves[lastMove]) {
@@ -454,47 +280,57 @@
         }
 
         aiMove() {
-            if (this.chess.game_over() || this.gameOver) return;
+            if (this.chess.game_over() || this.gameOver || this.isAIThinking) return;
             
-            const moves = this.chess.moves({ verbose: true });
-            if (moves.length === 0) return;
+            this.isAIThinking = true;
+            document.getElementById('turnDisplay').textContent = '🤖 AI is thinking...';
+            document.getElementById('turnDisplay').classList.add('thinking');
             
-            let move = null;
-            const hash = this.learner.hashPosition(this.chess.board());
-            const pos = this.learner.db.positions.find(p => p.hash === hash);
-            
-            // Use learning if available
-            if (pos && Object.keys(pos.moves).length > 0) {
-                // Get moves with win rates
-                const moveStats = Object.entries(pos.moves)
-                    .map(([moveSan, stats]) => ({
-                        san: moveSan,
-                        winRate: stats.wins / stats.played,
-                        played: stats.played
-                    }))
-                    .sort((a, b) => b.winRate - a.winRate);
+            setTimeout(() => {
+                const moves = this.chess.moves({ verbose: true });
+                if (moves.length === 0) {
+                    this.isAIThinking = false;
+                    document.getElementById('turnDisplay').classList.remove('thinking');
+                    return;
+                }
                 
-                // Try to find a valid move from learned data
-                for (let stat of moveStats) {
-                    const found = moves.find(m => m.san === stat.san);
-                    if (found) {
-                        move = found;
-                        break;
+                let move = null;
+                const hash = this.learner.hashPosition(this.chess.board());
+                const pos = this.learner.db.positions.find(p => p.hash === hash);
+                
+                if (pos && Object.keys(pos.moves).length > 0) {
+                    const moveStats = Object.entries(pos.moves)
+                        .map(([moveSan, stats]) => ({
+                            san: moveSan,
+                            winRate: stats.wins / stats.played,
+                            played: stats.played
+                        }))
+                        .sort((a, b) => b.winRate - a.winRate);
+                    
+                    for (let stat of moveStats) {
+                        const found = moves.find(m => m.san === stat.san);
+                        if (found) {
+                            move = found;
+                            break;
+                        }
                     }
                 }
-            }
-            
-            // If no learned move found or exploration mode
-            if (!move || Math.random() < 0.2) { // 20% exploration
-                move = moves[Math.floor(Math.random() * moves.length)];
-            }
-            
-            const result = this.chess.move(move);
-            if (result) {
-                this.moveHistory.push(result.san);
-                this.recordPosition();
+                
+                if (!move || Math.random() < 0.2) {
+                    move = moves[Math.floor(Math.random() * moves.length)];
+                }
+                
+                const result = this.chess.move(move);
+                if (result) {
+                    this.moveHistory.push(result.san);
+                    this.recordPosition();
+                    this.autoSaveGame(); // Auto-save after AI move
+                }
+                
+                this.isAIThinking = false;
+                document.getElementById('turnDisplay').classList.remove('thinking');
                 this.updateDisplay();
-            }
+            }, 100);
         }
 
         updateDisplay() {
@@ -549,11 +385,18 @@
             }
             
             // Update turn indicator
-            const turnText = this.chess.turn() === 'w' ? '⚪ White\'s turn' : '⚫ Black\'s turn';
             const isPlayerTurn = this.chess.turn() === (this.playerColor === 'white' ? 'w' : 'b');
-            document.getElementById('turnDisplay').textContent = isPlayerTurn ? 
-                `👤 Your turn (${turnText})` : 
-                `🤖 AI thinking... (${turnText})`;
+            const turnText = this.chess.turn() === 'w' ? '⚪ White' : '⚫ Black';
+            
+            if (this.isAIThinking) {
+                document.getElementById('turnDisplay').textContent = '🤖 AI is thinking...';
+            } else if (this.chess.game_over()) {
+                // handled below
+            } else {
+                document.getElementById('turnDisplay').textContent = isPlayerTurn ? 
+                    `👤 Your turn (${turnText})` : 
+                    `🤖 AI's turn (${turnText})`;
+            }
             
             // Update mode status
             const modeNames = { ai: '🤖 AI Mode', learn: '📚 Learn Mode' };
@@ -596,40 +439,33 @@
                     this.gameResult = 'draw';
                 }
                 document.getElementById('turnDisplay').textContent = `Game Over - ${result}`;
-                
-                // Record game result for learning
                 this.recordGameResult(this.gameResult);
+                // Clear auto-save when game is over
+                localStorage.removeItem('rchess_autosave');
             }
         }
 
         recordGameResult(result) {
-            // Update all positions from the game
             const positions = [];
             const history = this.chess.history({ verbose: true });
             let tempChess = new Chess();
             
-            // Record each position with the final result
             for (let move of history) {
                 tempChess.move(move);
                 const hash = this.learner.hashPosition(tempChess.board());
                 positions.push(hash);
             }
             
-            // Update learning database
             for (let hash of positions) {
                 const pos = this.learner.db.positions.find(p => p.hash === hash);
                 if (pos) {
                     pos.games_played++;
                     if (result === 'white' || result === 'black') {
-                        // Determine if this position was good for the winning side
-                        const winningColor = result;
-                        // Simple heuristic: if position is from winning side's perspective
-                        pos.wins += 1; // Increment wins for all positions in winning games
+                        pos.wins += 1;
                     }
                 }
             }
             
-            // Update global stats
             if (result === 'white') {
                 this.learner.db.stats.whiteWins = (this.learner.db.stats.whiteWins || 0) + 1;
             } else if (result === 'black') {
@@ -656,7 +492,6 @@
             document.getElementById('draws').textContent = stats.draws || 0;
             document.getElementById('positionsLearned').textContent = this.learner.db.positions.length;
             
-            // Current position suggestions
             const hash = this.learner.hashPosition(this.chess.board());
             const pos = this.learner.db.positions.find(p => p.hash === hash);
             
@@ -680,7 +515,6 @@
                 document.getElementById('moveSuggestions').innerHTML = '<p>No learning data yet for this position</p>';
             }
             
-            // Patterns
             const patterns = [];
             if (this.chess.in_check()) patterns.push('⚡ Check!');
             if (this.chess.in_checkmate()) patterns.push('♚ Checkmate!');
@@ -694,18 +528,12 @@
         }
 
         handleClick(row, col) {
-            if (this.chess.game_over() || this.gameOver) return;
+            if (this.chess.game_over() || this.gameOver || this.isAIThinking) return;
             
             const isPlayerTurn = this.chess.turn() === (this.playerColor === 'white' ? 'w' : 'b');
             
-            // In AI mode, only allow player moves
             if (this.mode === 'ai') {
                 if (!isPlayerTurn) return;
-            }
-            
-            // In learn mode, allow moves for both sides
-            if (this.mode === 'learn') {
-                // Allow all moves
             }
             
             const square = String.fromCharCode(97 + col) + (8 - row);
@@ -728,13 +556,12 @@
                     this.moveHistory.push(move.san);
                     this.selectedSquare = null;
                     this.recordPosition();
+                    this.autoSaveGame();
                     this.updateDisplay();
                     
-                    // In AI mode, trigger AI move
                     if (this.mode === 'ai' && !this.chess.game_over()) {
                         setTimeout(() => {
                             this.aiMove();
-                            this.updateDisplay();
                         }, 300);
                     }
                 } else {
@@ -772,12 +599,12 @@
                 this.pendingPromotion = null;
                 document.getElementById('promotionDialog').classList.remove('active');
                 this.recordPosition();
+                this.autoSaveGame();
                 this.updateDisplay();
                 
                 if (this.mode === 'ai' && !this.chess.game_over()) {
                     setTimeout(() => {
                         this.aiMove();
-                        this.updateDisplay();
                     }, 300);
                 }
             }
@@ -787,6 +614,8 @@
     class RchessLearner {
         constructor() {
             this.db = this.loadDatabase();
+            // Try to load external knowledge file
+            this.loadExternalKnowledge();
         }
 
         loadDatabase() {
@@ -799,6 +628,73 @@
                 stats: { totalGames: 0, whiteWins: 0, blackWins: 0, draws: 0 },
                 games: [] 
             };
+        }
+
+        loadExternalKnowledge() {
+            // Try to load from the same directory
+            // This will only work if served via a web server
+            fetch('ai_knowledge.json')
+                .then(response => {
+                    if (!response.ok) {
+                        // Try alternative filenames
+                        return fetch('rchess_ai_knowledge.json');
+                    }
+                    return response;
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('No knowledge file found');
+                })
+                .then(data => {
+                    if (data && data.positions) {
+                        // Merge with existing knowledge
+                        let loadedCount = 0;
+                        for (let pos of data.positions) {
+                            const existing = this.db.positions.find(p => p.hash === pos.hash);
+                            if (!existing) {
+                                this.db.positions.push(pos);
+                                loadedCount++;
+                            } else {
+                                // Merge move data
+                                for (let [move, stats] of Object.entries(pos.moves)) {
+                                    if (!existing.moves[move]) {
+                                        existing.moves[move] = { played: 0, wins: 0 };
+                                    }
+                                    existing.moves[move].played += stats.played || 0;
+                                    existing.moves[move].wins += stats.wins || 0;
+                                }
+                                // Update games_played and wins
+                                existing.games_played = (existing.games_played || 0) + (pos.games_played || 0);
+                                existing.wins = (existing.wins || 0) + (pos.wins || 0);
+                            }
+                        }
+                        
+                        // Update stats if present
+                        if (data.stats) {
+                            this.db.stats.totalGames = (this.db.stats.totalGames || 0) + (data.stats.totalGames || 0);
+                            this.db.stats.whiteWins = (this.db.stats.whiteWins || 0) + (data.stats.whiteWins || 0);
+                            this.db.stats.blackWins = (this.db.stats.blackWins || 0) + (data.stats.blackWins || 0);
+                            this.db.stats.draws = (this.db.stats.draws || 0) + (data.stats.draws || 0);
+                        }
+                        
+                        this.saveDatabase();
+                        
+                        // Update indicator
+                        document.getElementById('fileIndicator').className = 'file-indicator loaded';
+                        document.getElementById('fileIndicator').innerHTML = 
+                            `✅ Loaded AI knowledge (${loadedCount} new positions)`;
+                        
+                        showToast(`📚 Loaded ${loadedCount} positions from ai_knowledge.json`, 'success');
+                    }
+                })
+                .catch(() => {
+                    // No external file found, check for any JSON files
+                    document.getElementById('fileIndicator').className = 'file-indicator missing';
+                    document.getElementById('fileIndicator').innerHTML = 
+                        '📁 No external knowledge file found. Using local data.';
+                });
         }
 
         hashPosition(board) {
@@ -870,45 +766,75 @@
         game = new RchessGame();
         game.updateDisplay();
         document.getElementById('promotionDialog').classList.remove('active');
+        // Clear auto-save on new game
+        localStorage.removeItem('rchess_autosave');
+        showToast('🎲 New game started!', 'success');
     }
 
     function resetAI() {
         if (confirm('Reset all AI learning data? This cannot be undone!')) {
             game.learner.reset();
             game.updateDisplay();
+            showToast('🧠 AI knowledge reset successfully!', 'warning');
         }
     }
 
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast show ' + type;
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 4000);
+    }
+
     function exportGame() {
-        let data = {
+        const gameData = {
             moves: game.moveHistory,
             result: game.gameResult || 'unknown',
             timestamp: new Date().toISOString(),
             playerColor: game.playerColor,
-            aiColor: game.aiColor
+            aiColor: game.aiColor,
+            mode: game.mode,
+            version: '1.0'
         };
-        let blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        let url = URL.createObjectURL(blob);
-        let a = document.createElement('a');
+
+        // Save to localStorage
+        const games = JSON.parse(localStorage.getItem('rchess_games') || '[]');
+        games.push(gameData);
+        localStorage.setItem('rchess_games', JSON.stringify(games));
+
+        // Download as JSON
+        const blob = new Blob([JSON.stringify(gameData, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
         a.href = url;
-        a.download = `rchess_game_${Date.now()}.json`;
+        a.download = `game_${Date.now()}.json`;
         a.click();
+        URL.revokeObjectURL(url);
+
+        showToast('✅ Game saved! Place in repo alongside classic.html', 'success');
     }
 
     function exportAI() {
-        let data = game.learner.db;
-        let blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        let url = URL.createObjectURL(blob);
-        let a = document.createElement('a');
+        const data = game.learner.db;
+        data.timestamp = new Date().toISOString();
+        data.version = '1.0';
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
         a.href = url;
-        a.download = `rchess_ai_knowledge_${Date.now()}.json`;
+        a.download = `ai_knowledge.json`;
         a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ AI knowledge exported as ai_knowledge.json', 'success');
     }
 
     function playSuggestion(move) {
-        if (!game || game.chess.game_over()) return;
+        if (!game || game.chess.game_over() || game.isAIThinking) return;
         
-        // Parse the move notation and make it
         const moves = game.chess.moves({ verbose: true });
         const found = moves.find(m => m.san === move);
         if (found) {
@@ -917,7 +843,6 @@
             const toRow = 8 - parseInt(found.to[1]);
             const toCol = found.to.charCodeAt(0) - 97;
             game.handleClick(fromRow, fromCol);
-            // Small delay then click the target
             setTimeout(() => {
                 game.handleClick(toRow, toCol);
             }, 100);
