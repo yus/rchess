@@ -7,7 +7,7 @@
     <!-- link rel="stylesheet" href="../lib/rchess-style.css" -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
     <!-- Auto-load PGN data -->
-    <script>
+    <!-- script>
     // This will load after the main game loads
     window.addEventListener('load', function() {
         // Wait 2 seconds for game to initialize
@@ -17,7 +17,7 @@
             }
         }, 2000);
     });
-    </script>
+    </script -->
     <style>
         /* ===== RESET & BASE ===== */
         * {
@@ -1200,9 +1200,44 @@
     }
 
     let game;
+
+    // ===== ADD TO YOUR HTML - Auto-load PGN data =====
+    function loadPGNData() {
+        // Try to load the PGN file from the repo
+        fetch('games/data/chess960_2015.pgn')
+            .then(response => {
+                if (!response.ok) {
+                    // Try alternative path
+                    return fetch('data/chess960_2015.pgn');
+                }
+                return response;
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                }
+                throw new Error('PGN file not found');
+            })
+            .then(pgn => {
+                console.log('PGN loaded! Size:', pgn.length, 'characters');
+                // Parse and import
+                const games = parsePGN(pgn);
+                processPGNGames(games);
+                showToast(`📚 Loaded ${games.length} games from PGN!`, 'success');
+            })
+            .catch(() => {
+                console.log('No PGN data found, using existing knowledge');
+            });
+    }
+    
     window.onload = () => {
         game = new RchessGame();
         game.updateDisplay();
+
+        // Load PGN data after a small delay
+        setTimeout(() => {
+            loadPGNData();
+        }, 1000);
         
         document.querySelectorAll('.promotion-btn').forEach(btn => {
             btn.addEventListener('click', () => {
